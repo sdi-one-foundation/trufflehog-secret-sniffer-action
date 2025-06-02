@@ -29,6 +29,4 @@ jobs:
     steps:
       - name: Secret Scanning Action
         uses: sdi-one-foundation/trufflehog-secret-sniffer-action@v1
-        with:
-          ms-teams-webhook-url: ${{ secrets.MS_TEAMS_RELEASE_WEBHOOK_URL }}
 ```
