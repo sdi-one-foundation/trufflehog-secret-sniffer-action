@@ -16,26 +16,10 @@ runs:
         with:
           fetch-depth: 0 #Setting `fetch-depth` to `0` ensures that no tags or branches are excluded from the scan
 
-      - name: Create email.html
-        shell: bash
-        run: cat ${{ github.action_path }}/email.html >> email.html
-
       - name: Secret Scanning
         uses: trufflesecurity/trufflehog@main
         with:
           extra_args: --results=verified,unknown
-
-      - name: Find and Replace Github Repository Name
-        uses: jacobtomlinson/gha-find-replace@2.0.0
-        with:
-          find: "Repository_Name_Placeholder"
-          replace: ${{ github.repository }}
-
-      - name: Find and Replace Github URL
-        uses: jacobtomlinson/gha-find-replace@2.0.0
-        with:
-          find: "Repository_URL_Placeholder"
-          replace: ${{ github.server_url }}/${{ github.repository }}
 
       - name: Send mail
         uses: dawidd6/action-send-mail@v5
@@ -55,7 +39,16 @@ runs:
           to: alerts+foundation@one.singledigits.com
           # Required sender full name (address can be skipped):
           from: '"Foundation Alerts" <alerts+foundation@one.singledigits.com>'
-          html_body: file://email.html
+          html_body: |
+               <!DOCTYPE html>
+               <html>
+               <body>
+               <h1>Secrets Found in the code of ${{github.repository}} repository</h1>
+               <p>Please investigate immediately.</p></n>
+               <p>You can find the repo at:</p></n>
+               <a href="${{ github.server_url }}/${{ github.repository }}">${{ github.repository }}</a>
+               </body>
+               </html>
           # Optional unsigned/invalid certificates allowance:
           ignore_cert: true
           # Optional converting Markdown to HTML (set content_type to text/html too):
