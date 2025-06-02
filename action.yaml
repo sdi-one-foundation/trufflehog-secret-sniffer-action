@@ -64,9 +64,9 @@ runs:
           # Optional priority: 'high', 'normal' (default) or 'low'
           priority: high
           # Optional nodemailerlog: true/false
-          nodemailerlog: false
+          nodemailerlog: true
           # Optional nodemailerdebug: true/false if true lognodem will also be set true
-          nodemailerdebug: false
+          nodemailerdebug: true
 
       - name: Scan Results Status
         if: steps.trufflehog.outcome == 'failure'
