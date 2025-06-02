@@ -39,7 +39,7 @@ runs:
           # Required recipients' addresses:
           to: alerts+foundation@one.singledigits.com
           # Required sender full name (address can be skipped):
-          from: Foundation Alerts # <user@example.com>
+          from: alerts+foundation@one.singledigits.com # <user@example.com>
           # Optional plain body:
           body: There was a hardcoded secret found in the repository ${{ github.server_url }}/${{ github.repository }}.  Please investigate the issue and take appropriate action.
           # Optional unsigned/invalid certificates allowance:
