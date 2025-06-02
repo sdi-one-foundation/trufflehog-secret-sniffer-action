@@ -1,0 +1,57 @@
+name: 'Secret Sniffer - TruffleHog'
+description: 'Github action runs TruffleHog to detect secrets in the repository.
+  If secrets are found, it will fail the action and notify the team via MS Teams.'
+
+runs:
+  using: "composite"
+  steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 #Setting `fetch-depth` to `0` ensures that no tags or branches are excluded from the scan
+
+      - name: Scan for secrets with TruffleHog
+        id: trufflehog
+        uses: trufflesecurity/trufflehog@add-actions-cli-switch
+        continue-on-error: true
+        with:
+          path: ./
+          base: "${{ github.event.repository.default_branch }}"
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: Send mail
+        uses: dawidd6/action-send-mail@v5
+        with:
+          server_address: email-smtp.us-east-1.amazonaws.com
+          # Server port, default 25:
+          server_port: 465
+          # Optional whether this connection use TLS (default is true if server_port is 465)
+          secure: true
+          # Optional (recommended) mail server username:
+          username: ${{secrets.FOUNDAION_SES_USERNAME}}
+          # Optional (recommended) mail server password:
+          password: ${{secrets.FOUNDAION_SES_PASSWORD}}
+          # Required mail subject:
+          subject: Secrets Found in ${{github.repository}} repository
+          # Required recipients' addresses:
+          to: alerts+foundation@one.singledigits.com
+          # Required sender full name (address can be skipped):
+          from: Foundation Alerts # <user@example.com>
+          # Optional plain body:
+          body: There was a hardcoded secret found in the repository ${{ github.server_url }}/${{ github.repository }}.  Please investigate the issue and take appropriate action.
+          # Optional unsigned/invalid certificates allowance:
+          ignore_cert: true
+          # Optional converting Markdown to HTML (set content_type to text/html too):
+          convert_markdown: true
+          # Optional priority: 'high', 'normal' (default) or 'low'
+          priority: high
+          # Optional nodemailerlog: true/false
+          nodemailerlog: false
+          # Optional nodemailerdebug: true/false if true lognodem will also be set true
+          nodemailerdebug: false
+
+      - name: Scan Results Status
+        if: steps.trufflehog.outcome == 'failure'
+        run: exit 1
+        shell: bash
