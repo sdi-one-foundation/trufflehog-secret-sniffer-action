@@ -55,7 +55,7 @@ runs:
           # Required recipients' addresses:
           to: alerts+foundation@one.singledigits.com
           # Required sender full name (address can be skipped):
-          from: Foundation Alerts # <user@example.com>
+          from: '"Foundation Alerts" <alerts+foundation@one.singledigits.com>'
           html_body: file://email.html
           # Optional unsigned/invalid certificates allowance:
           ignore_cert: true
