@@ -16,6 +16,10 @@ runs:
         with:
           fetch-depth: 0 #Setting `fetch-depth` to `0` ensures that no tags or branches are excluded from the scan
 
+      - name: Create email.html
+        shell: bash
+        run: cat ${{ github.action_path }}/email.html >> email.html
+
       - name: Secret Scanning
         uses: trufflesecurity/trufflehog@main
         with:
