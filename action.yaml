@@ -29,9 +29,9 @@ runs:
           # Optional whether this connection use TLS (default is true if server_port is 465)
           secure: true
           # Optional (recommended) mail server username:
-          username: ${{secrets.FOUNDAION_SES_USERNAME}}
+          username: ${{secrets.FOUNDATION_SES_USERNAME}}
           # Optional (recommended) mail server password:
-          password: ${{secrets.FOUNDAION_SES_PASSWORD}}
+          password: ${{secrets.FOUNDATION_SES_PASSWORD}}
           # Required mail subject:
           subject: Secrets Found in ${{github.repository}} repository
           # Required recipients' addresses:
