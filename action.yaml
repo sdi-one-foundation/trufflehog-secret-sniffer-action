@@ -1,7 +1,13 @@
 name: 'Secret Sniffer - TruffleHog'
 description: 'Github action runs TruffleHog to detect secrets in the repository.
   If secrets are found, it will fail the action and notify the team via MS Teams.'
-
+inputs:
+  ses-username:
+    description: 'Username for the AWS SES service to send email alerts'
+    required: true
+  ses-password:
+    description: 'Password for the AWS SES service to send email alerts'
+    required: true
 runs:
   using: "composite"
   steps:
@@ -29,9 +35,9 @@ runs:
           # Optional whether this connection use TLS (default is true if server_port is 465)
           secure: true
           # Optional (recommended) mail server username:
-          username: ${{secrets.FOUNDATION_SES_USERNAME}}
+          username: ${{inputs.ses-username}}
           # Optional (recommended) mail server password:
-          password: ${{secrets.FOUNDATION_SES_PASSWORD}}
+          password: ${{inputs.ses-password}}
           # Required mail subject:
           subject: Secrets Found in ${{github.repository}} repository
           # Required recipients' addresses:
