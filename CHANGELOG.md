@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [v1.1.3](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.1.3) - 2025-06-02 18:37:30
+
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.1.3
+
+### Miscellaneous
+
+
+- bot:
+  - update files for Release v1.1.2. ([921b47f](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/921b47f46792ec914360e345bfc08225cf204209))
+
 ## [v1.1.2](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.1.2) - 2025-06-02 18:34:10
 
 **Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.1.2
