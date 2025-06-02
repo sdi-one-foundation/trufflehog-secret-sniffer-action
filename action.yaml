@@ -43,7 +43,7 @@ runs:
                <!DOCTYPE html>
                <html>
                <body>
-               <h1>Secrets Found in the code of ${{github.repository}} repository</h1>
+               <h1>Secrets Found in <u>${{github.repository}}</u> repository</h1>
                <p>Please investigate immediately.</p></n>
                <p>You can find the repo at:</p></n>
                <a href="${{ github.server_url }}/${{ github.repository }}">${{ github.repository }}</a>
