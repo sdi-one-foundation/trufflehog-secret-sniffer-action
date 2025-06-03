@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## [v1.4.1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.4.1) - 2025-06-03 17:39:22
+
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.4.1
+
+### Feature
+
+- general:
+  - add more detail about type of run to email ([12cc7ce](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/12cc7ced6ad135a3a78ecbf994568cd3a8d25113))
+
+### Bug Fixes
+
+- general:
+  - fix reference in email for type ([706ae0c](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/706ae0c8a5cf508e046f1328c0699740a80836f2))
+
+### Miscellaneous
+
+
+- general:
+  - change formatting ([1160cd8](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/1160cd8d9462361193dfcebdc039c6e42819e146))
+
+- bot:
+  - update files for Release v1.4.0. ([6f8151b](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/6f8151b08f2327e73fc40e91f91f69a4d2fcdcd9))
+
 ## [v1.4.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.4.0) - 2025-06-03 15:53:45
 
 **Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.4.0
