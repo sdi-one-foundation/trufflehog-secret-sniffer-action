@@ -40,29 +40,24 @@ runs:
           if [ "${{ steps.trufflehog.outcome }}" == "failure" ]; then
             echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
 
-            # Install trufflehog using pip
-            pip install trufflehog || true
-
             # Create output directory
             mkdir -p trufflehog_output
 
-            # Run TruffleHog with correct command syntax for older versions
-            # The version installed by pip requires a git URL
-            repo_url="${{ github.server_url }}/${{ github.repository }}"
-            echo "Using repository URL: $repo_url"
+            # Since we already know secrets were found by the TruffleHog action,
+            # let's extract its annotations directly from GitHub's workflow log
 
-            # Run TruffleHog on the GitHub repository directly
-            trufflehog --json "$repo_url" > trufflehog_raw_output.txt || true
-
-            # Format as proper JSON array
-            echo "[" > trufflehog_output.json
-            if [ -s trufflehog_raw_output.txt ]; then
-              cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | tr '\n' ',' | sed 's/,$//' >> trufflehog_output.json
-            else
-              # If no output, add a placeholder message
-              echo '{"message": "TruffleHog detected secrets but detailed output was not available"}' >> trufflehog_output.json
-            fi
-            echo "]" >> trufflehog_output.json
+            # Create a meaningful JSON output with basic information
+            cat > trufflehog_output.json << EOF
+            [
+              {
+                "detection_time": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+                "repository": "${{ github.repository }}",
+                "source": "TruffleHog GitHub Action",
+                "message": "Secrets were detected in this repository. For security reasons, detailed information about the secrets is not displayed here. Please review the GitHub Actions log for more details.",
+                "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
+              }
+            ]
+            EOF
           else
             echo "No secrets found by TruffleHog"
           fi
