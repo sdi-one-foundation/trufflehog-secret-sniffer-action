@@ -77,16 +77,42 @@ runs:
             echo "]" >> trufflehog_array.json
 
             # Process each finding to extract file and line information
-            jq 'map(select(.SourceMetadata.Data.Git.file != null) | {
-                "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                "repository": "${{ github.repository }}",
-                "source": "TruffleHog GitHub Action",
-                "file": .SourceMetadata.Data.Git.file,
-                "line": .SourceMetadata.Data.Git.line,
-                "detector_type": .DetectorName,
-                "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
-              })' trufflehog_array.json > trufflehog_output.json
+            jq 'map(
+              if .SourceMetadata.Data.Git.file != null then
+                {
+                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                  "repository": "${{ github.repository }}",
+                  "source": "TruffleHog GitHub Action",
+                  "file": .SourceMetadata.Data.Git.file,
+                  "line": .SourceMetadata.Data.Git.line,
+                  "detector_type": .DetectorName,
+                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                  "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
+                }
+              elif .SourceMetadata.Data.Filesystem.file != null then
+                {
+                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                  "repository": "${{ github.repository }}",
+                  "source": "TruffleHog GitHub Action",
+                  "file": .SourceMetadata.Data.Filesystem.file,
+                  "line": .SourceMetadata.Data.Filesystem.line,
+                  "detector_type": .DetectorName,
+                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                  "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
+                }
+              else
+                {
+                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                  "repository": "${{ github.repository }}",
+                  "source": "TruffleHog GitHub Action",
+                  "file": "unknown",
+                  "line": "unknown",
+                  "detector_type": .DetectorName,
+                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                  "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
+                }
+              end
+            )' trufflehog_array.json > trufflehog_output.json
           fi
 
           # If processing failed or no detailed output, create a generic message
