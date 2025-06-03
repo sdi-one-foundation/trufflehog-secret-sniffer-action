@@ -154,9 +154,15 @@ runs:
           <html>
           <body>
           <h1>Secrets Found in the code of ${{github.repository}} repository</h1>
+          <p><strong>Event Type:</strong> ${{ github.event_name == 'pull_request' ? 'Pull Request' : 'Push to ' + github.ref_name + ' branch' }}</p>
           <p>Please investigate immediately.</p>
-          <p>You can find the repo at:</p>
-          <a href="${{ github.server_url }}/${{ github.repository }}">${{ github.repository }}</a>
+
+          <h3>Links:</h3>
+          <ul>
+            <li><strong>Repository:</strong> <a href="${{ github.server_url }}/${{ github.repository }}">${{ github.repository }}</a></li>
+            <li><strong>Action Run:</strong> <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View GitHub Action Run</a></li>
+            ${{ github.event_name == 'pull_request' ? '<li><strong>Pull Request:</strong> <a href="' + github.event.pull_request.html_url + '">PR #' + github.event.pull_request.number + '</a></li>' : '' }}
+          </ul>
 
           <h2>Findings Details:</h2>
           <pre>${{ env.TRUFFLEHOG_FINDINGS }}</pre>
