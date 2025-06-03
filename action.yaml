@@ -89,16 +89,16 @@ runs:
           echo "EVENT_TYPE=Pull Request" >> $GITHUB_ENV
           echo "EVENT_URL=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
 
-          # Create a simple PR button (only one)
-          PR_BUTTON='<a href="${{ github.event.pull_request.html_url }}" class="button">Pull Request #${{ github.event.pull_request.number }}</a>'
+          # Create a list item for PR (only shown for pull requests)
+          PR_LIST_ITEM='<li><a href="${{ github.event.pull_request.html_url }}">Pull Request #${{ github.event.pull_request.number }}</a></li>'
 
-          echo "PR_BUTTON<<EOF" >> $GITHUB_ENV
-          echo "$PR_BUTTON" >> $GITHUB_ENV
+          echo "PR_LIST_ITEM<<EOF" >> $GITHUB_ENV
+          echo "$PR_LIST_ITEM" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
         else
           echo "EVENT_TYPE=Push to ${{ github.ref_name }} branch" >> $GITHUB_ENV
           echo "EVENT_URL=${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}" >> $GITHUB_ENV
-          echo "PR_BUTTON=" >> $GITHUB_ENV
+          echo "PR_LIST_ITEM=" >> $GITHUB_ENV
         fi
 
     - name: Post findings to PR
@@ -233,16 +233,19 @@ runs:
                 border-color: #f9c2c2;
               }
               .link-list {
-                list-style-type: none;
-                padding-left: 0;
-                display: flex;
-                flex-wrap: wrap;
                 margin-bottom: 20px;
+                padding-left: 20px;
+              }
+              .link-list li {
+                margin-bottom: 8px;
               }
               .link-list a {
-                margin-right: 8px;
-                margin-bottom: 8px;
-                display: inline-block;
+                color: #0366d6;
+                text-decoration: underline;
+                font-weight: 500;
+              }
+              .link-list a:hover {
+                text-decoration: none;
               }
               pre {
                 background-color: #f1f1f1;
@@ -272,12 +275,19 @@ runs:
               </div>
 
               <h3>🔗 Important Links</h3>
-              <div class="link-list">
-                <a href="${{ github.server_url }}/${{ github.repository }}" class="button">
-                  Repository
-                </a>
-                ${{ env.PR_BUTTON }}
-              </div>
+              <ol class="link-list">
+                <li>
+                  <a href="${{ github.server_url }}/${{ github.repository }}">
+                    Repository
+                  </a>
+                </li>
+                <li>
+                  <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">
+                    GitHub Action Run
+                  </a>
+                </li>
+                ${{ env.PR_LIST_ITEM }}
+              </ol>
 
               <h3>🔍 Detection Details</h3>
               <pre>${{ env.TRUFFLEHOG_FINDINGS }}</pre>
