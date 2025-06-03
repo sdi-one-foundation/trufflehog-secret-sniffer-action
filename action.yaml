@@ -32,7 +32,7 @@ runs:
     - uses: trufflesecurity/trufflehog@main
       id: trufflehog
       with:
-        extra_args: ${{ env.SCAN_TYPE == 'changes' && format('--results=verified,unknown --branch {1}', env.BASE_SHA, env.HEAD_SHA) || '--results=verified,unknown' }}
+        extra_args: --results=verified,unknown
       continue-on-error: true
 
     - name: Capture TruffleHog output
