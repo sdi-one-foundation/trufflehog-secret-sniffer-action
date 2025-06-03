@@ -1,5 +1,36 @@
 # CHANGELOG
 
+## [v1.4.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.4.0) - 2025-06-03 15:53:45
+
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.4.0
+
+### Feature
+
+- general:
+  - add more deatil to email ([53ee6c8](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/53ee6c86d77068e41d5b7db67dd6be8b554f9362))
+  - add more details to message ([ab7a2a1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/ab7a2a12233426dc1bf280e25135bad15665b2f5))
+
+### Bug Fixes
+
+- general:
+  - make action run with normal github action output ([2e4a8da](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/2e4a8da33b3c7b35455e242d51b234b9c0654705))
+  - add more details to logs ([93342dd](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/93342dd79a043ee53ffe4635b6f91f626412c91c))
+  - change heredoc formatting ([284676c](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/284676cb4b7c6aa90a2371ba83974931b7c58395))
+  - remove second run of trufflehog ([41cce9f](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/41cce9f1bfed33cbad7b9be1be4197386ec5cf4a))
+  - change for url error again ([9f4c82f](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/9f4c82f11c34692c5d0ebc8a24996d9c488dfc25))
+  - change for github url error ([f2f73f2](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/f2f73f28446b6fc94be65f1f4c0cc84f42e846f0))
+  - change extra arugments for cli run ([5ecfeab](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/5ecfeab8824ff80353275e264c9a48a1668d3d6d))
+  - run local install of trufflehog if action find secret ([ac1777e](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/ac1777ea4be72eb94ff6ee3128ac9dead0ad17a9))
+  - change to grab output better ([cbdb504](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/cbdb504191651c70c9b0d239168e90b7dd287417))
+  - fix grabbing outputted found secrets ([dfd4ab9](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/dfd4ab9cec88679a5407d2fddfb87c6c65563228))
+  - fix grabbing secret output ([2c5dd4e](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/2c5dd4e8ad575555141c4eadf9f7304a4197839a))
+
+### Miscellaneous
+
+
+- bot:
+  - update files for Release v1.3.3. ([98fa066](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/98fa066905d671696005261c7f5ce565ef5f65a9))
+
 ## [v1.3.3](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.3.3) - 2025-06-03 14:26:42
 
 **Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.3.3
