@@ -371,9 +371,9 @@ runs:
                     <p class="link-card-url">Actions › Run #${{ github.run_id }}</p>
                   </div>
                 </a>
-
-                ${{ env.PR_CARD != '' ? env.PR_CARD : '' }}
-
+                
+                ${{ env.PR_CARD }}
+                
                 <h2>🔍 Detection Details</h2>
                 <div class="code-block">${{ env.TRUFFLEHOG_FINDINGS }}</div>
               </div>
