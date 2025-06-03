@@ -11,18 +11,25 @@ inputs:
 runs:
   using: "composite"
   steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - shell: bash
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            echo "depth=$(($(jq length <<< '${{ toJson(github.event.commits) }}') + 2))" >> $GITHUB_ENV
+            echo "branch=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "depth=$((${{ github.event.pull_request.commits }}+2))" >> $GITHUB_ENV
+            echo "branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+          fi
+      - uses: actions/checkout@v3
         with:
-          fetch-depth: 0 #Setting `fetch-depth` to `0` ensures that no tags or branches are excluded from the scan
-
-      - name: Secret Scanning
-        uses: trufflesecurity/trufflehog@main
+          ref: ${{env.branch}}
+          fetch-depth: ${{env.depth}}
+      - uses: trufflesecurity/trufflehog@main
         with:
-          extra_args: --results=verified,unknown
+          extra_args: --github-actions --results=verified,unknown
 
       - name: Send mail
-        if: steps.trufflehog.outcome == 'failure' 
         uses: dawidd6/action-send-mail@v5
         with:
           server_address: email-smtp.us-east-1.amazonaws.com
@@ -44,12 +51,10 @@ runs:
                <!DOCTYPE html>
                <html>
                <body>
-               <h1>Secrets Found in <u>${{github.repository}}</u> repository</h1>
+               <h1>Secrets Found in the code of ${{github.repository}} repository</h1>
                <p>Please investigate immediately.</p></n>
                <p>You can find the repo at:</p></n>
-               <a href="${{ github.server_url }}/${{ github.repository }}">${{ github.repository }}</a></n>
-               <p>You can find the action that was ran at:</p></n>
-               <a href="fillme">fillme</a>
+               <a href="${{ github.server_url }}/${{ github.repository }}">${{ github.repository }}</a>
                </body>
                </html>
           # Optional unsigned/invalid certificates allowance:
