@@ -27,9 +27,43 @@ runs:
           fetch-depth: ${{env.depth}}
       - uses: trufflesecurity/trufflehog@main
         with:
-          extra_args: --results=verified,unknown
+          extra_args: --results=verified,unknown --json > trufflehog_output.json || echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
+
+      - name: Post findings to PR
+        if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('fs');
+            let outputContent;
+            try {
+              outputContent = fs.readFileSync('trufflehog_output.json', 'utf8');
+            } catch (error) {
+              outputContent = "Error reading TruffleHog output, but secrets were detected.";
+            }
+
+            const commentBody = `## ⚠️ Security Alert: Secrets Detected
+
+            TruffleHog has detected secrets in this pull request. Please review and remove any sensitive information.
+
+            <details>
+            <summary>Details (click to expand)</summary>
+
+            \`\`\`json
+            ${outputContent}
+            \`\`\`
+            </details>`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });
 
       - name: Send mail
+        if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
         uses: dawidd6/action-send-mail@v5
         with:
           server_address: email-smtp.us-east-1.amazonaws.com
