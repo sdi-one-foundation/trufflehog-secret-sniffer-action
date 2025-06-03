@@ -1,6 +1,5 @@
 name: 'Secret Sniffer - TruffleHog'
-description: 'Github action runs TruffleHog to detect secrets in the repository.
-  If secrets are found, it will fail the action and notify the team via MS Teams.'
+description: 'Github action runs TruffleHog to detect secrets in the repository. If secrets are found, it will fail the action and notify the team via email.'
 inputs:
   ses-username:
     description: 'Username for the AWS SES service to send email alerts'
@@ -11,135 +10,110 @@ inputs:
 runs:
   using: "composite"
   steps:
-      - shell: bash
-        run: |
-          if [ "${{ github.event_name }}" == "push" ]; then
-            echo "depth=$(($(jq length <<< '${{ toJson(github.event.commits) }}') + 2))" >> $GITHUB_ENV
-            echo "branch=${{ github.ref_name }}" >> $GITHUB_ENV
-          fi
-          if [ "${{ github.event_name }}" == "pull_request" ]; then
-            echo "depth=$((${{ github.event.pull_request.commits }}+2))" >> $GITHUB_ENV
-            echo "branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
-          fi
+    - shell: bash
+      run: |
+        if [ "${{ github.event_name }}" == "push" ]; then
+          echo "depth=$(($(jq length <<< '${{ toJson(github.event.commits) }}') + 2))" >> $GITHUB_ENV
+          echo "branch=${{ github.ref_name }}" >> $GITHUB_ENV
+        fi
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          echo "depth=$((${{ github.event.pull_request.commits }}+2))" >> $GITHUB_ENV
+          echo "branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+        fi
 
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{env.branch}}
-          fetch-depth: ${{env.depth}}
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{env.branch}}
+        fetch-depth: ${{env.depth}}
 
-      # Use the official TruffleHog action
-      - uses: trufflesecurity/trufflehog@main
-        id: trufflehog
-        with:
-          extra_args: --json --results=verified,unknown
-        continue-on-error: true
+    # Use the official TruffleHog action
+    - uses: trufflesecurity/trufflehog@main
+      id: trufflehog
+      with:
+        extra_args: --json --results=verified,unknown
+      continue-on-error: true
 
-      - name: Capture TruffleHog output
-        shell: bash
-        run: |
-          if [ "${{ steps.trufflehog.outcome }}" == "failure" ]; then
-            echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
+    - name: Capture TruffleHog output
+      shell: bash
+      run: |
+        if [ "${{ steps.trufflehog.outcome }}" == "failure" ]; then
+          echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
 
-            # Create output directory
-            mkdir -p trufflehog_output
+          # Create output directory
+          mkdir -p trufflehog_output
 
-            # Since we already know secrets were found by the TruffleHog action,
-            # let's extract its annotations directly from GitHub's workflow log
+          # Create a JSON file with findings information
+          echo '[{"detection_time":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","repository":"${{ github.repository }}","source":"TruffleHog GitHub Action","message":"Secrets were detected in this repository. For security reasons, detailed information about the secrets is not displayed here. Please review the GitHub Actions log for more details.","recommendation":"Review recent changes for any sensitive information such as API keys, passwords, or private tokens."}]' > trufflehog_output.json
+        else
+          echo "No secrets found by TruffleHog"
+        fi
 
-            # Create a meaningful JSON output with basic information
-            cat > trufflehog_output.json << EOF
-            [
-              {
-                "detection_time": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-                "repository": "${{ github.repository }}",
-                "source": "TruffleHog GitHub Action",
-                "message": "Secrets were detected in this repository. For security reasons, detailed information about the secrets is not displayed here. Please review the GitHub Actions log for more details.",
-                "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
-              }
-            ]
-            EOF
-          else
-            echo "No secrets found by TruffleHog"
-          fi
+    - name: Post findings to PR
+      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' && github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ github.token }}
+        script: |
+          const fs = require('fs');
+          let outputContent;
+          try {
+            outputContent = fs.readFileSync('trufflehog_output.json', 'utf8');
+            // Try to parse and format it nicely for the PR comment
+            const jsonData = JSON.parse(outputContent);
+            outputContent = JSON.stringify(jsonData, null, 2);
+          } catch (error) {
+            console.error("Error processing TruffleHog output:", error);
+            outputContent = "Error processing TruffleHog output, but secrets were detected.";
+          }
 
-      - name: Post findings to PR
-        if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' && github.event_name == 'pull_request'
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ github.token }}
-          script: |
-            const fs = require('fs');
-            let outputContent;
-            try {
-              outputContent = fs.readFileSync('trufflehog_output.json', 'utf8');
-              // Try to parse and format it nicely for the PR comment
-              const jsonData = JSON.parse(outputContent);
-              outputContent = JSON.stringify(jsonData, null, 2);
-            } catch (error) {
-              console.error("Error processing TruffleHog output:", error);
-              outputContent = "Error processing TruffleHog output, but secrets were detected.";
-            }
+          const commentBody = `## ⚠️ Security Alert: Secrets Detected
 
-            const commentBody = `## ⚠️ Security Alert: Secrets Detected
+          TruffleHog has detected secrets in this pull request. Please review and remove any sensitive information.
 
-            TruffleHog has detected secrets in this pull request. Please review and remove any sensitive information.
+          <details>
+          <summary>Details (click to expand)</summary>
 
-            <details>
-            <summary>Details (click to expand)</summary>
+          \`\`\`json
+          ${outputContent}
+          \`\`\`
+          </details>`;
 
-            \`\`\`json
-            ${outputContent}
-            \`\`\`
-            </details>`;
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });
 
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: commentBody
-            });
+    - name: Send mail
+      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
+      uses: dawidd6/action-send-mail@v5
+      with:
+        server_address: email-smtp.us-east-1.amazonaws.com
+        server_port: 465
+        secure: true
+        username: ${{inputs.ses-username}}
+        password: ${{inputs.ses-password}}
+        subject: Secrets Found in ${{github.repository}} repository
+        to: alerts+foundation@one.singledigits.com
+        from: '"Foundation Alerts" <alerts+foundation@one.singledigits.com>'
+        html_body: |
+          <!DOCTYPE html>
+          <html>
+          <body>
+          <h1>Secrets Found in the code of ${{github.repository}} repository</h1>
+          <p>Please investigate immediately.</p>
+          <p>You can find the repo at:</p>
+          <a href="${{ github.server_url }}/${{ github.repository }}">${{ github.repository }}</a>
+          </body>
+          </html>
+        ignore_cert: true
+        convert_markdown: true
+        priority: high
+        nodemailerlog: true
+        nodemailerdebug: true
 
-      - name: Send mail
-        if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
-        uses: dawidd6/action-send-mail@v5
-        with:
-          server_address: email-smtp.us-east-1.amazonaws.com
-          # Server port, default 25:
-          server_port: 465
-          # Optional whether this connection use TLS (default is true if server_port is 465)
-          secure: true
-          # Optional (recommended) mail server username:
-          username: ${{inputs.ses-username}}
-          # Optional (recommended) mail server password:
-          password: ${{inputs.ses-password}}
-          # Required mail subject:
-          subject: Secrets Found in ${{github.repository}} repository
-          # Required recipients' addresses:
-          to: alerts+foundation@one.singledigits.com
-          # Required sender full name (address can be skipped):
-          from: '"Foundation Alerts" <alerts+foundation@one.singledigits.com>'
-          html_body: |
-               <!DOCTYPE html>
-               <html>
-               <body>
-               <h1>Secrets Found in the code of ${{github.repository}} repository</h1>
-               <p>Please investigate immediately.</p></n>
-               <p>You can find the repo at:</p></n>
-               <a href="${{ github.server_url }}/${{ github.repository }}">${{ github.repository }}</a>
-               </body>
-               </html>
-          # Optional unsigned/invalid certificates allowance:
-          ignore_cert: true
-          # Optional converting Markdown to HTML (set content_type to text/html too):
-          convert_markdown: true
-          # Optional priority: 'high', 'normal' (default) or 'low'
-          priority: high
-          # Optional nodemailerlog: true/false
-          nodemailerlog: true
-          # Optional nodemailerdebug: true/false if true lognodem will also be set true
-          nodemailerdebug: true
-
-      - name: Scan Results Status
-        if: steps.trufflehog.outcome == 'failure'
-        run: exit 1
-        shell: bash
+    - name: Scan Results Status
+      if: steps.trufflehog.outcome == 'failure'
+      run: exit 1
+      shell: bash
