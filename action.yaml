@@ -27,7 +27,7 @@ runs:
           fetch-depth: ${{env.depth}}
       - uses: trufflesecurity/trufflehog@main
         with:
-          extra_args: --github-actions --results=verified,unknown --json > trufflehog_output.json || echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
+          extra_args: --results=verified,unknown --json > trufflehog_output.json || echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
 
       - name: Post findings to PR
         if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' && github.event_name == 'pull_request'
