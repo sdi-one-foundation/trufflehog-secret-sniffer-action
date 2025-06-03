@@ -81,6 +81,20 @@ runs:
           echo "No secrets found by TruffleHog"
         fi
 
+    - name: Set event type
+      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          echo "EVENT_TYPE=Pull Request" >> $GITHUB_ENV
+          echo "EVENT_URL=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
+          echo "PR_INFO=<li><strong>Pull Request:</strong> <a href=\"${{ github.event.pull_request.html_url }}\">PR #${{ github.event.pull_request.number }}</a></li>" >> $GITHUB_ENV
+        else
+          echo "EVENT_TYPE=Push to ${{ github.ref_name }} branch" >> $GITHUB_ENV
+          echo "EVENT_URL=${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "PR_INFO=" >> $GITHUB_ENV
+        fi
+
     - name: Post findings to PR
       if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' && github.event_name == 'pull_request'
       uses: actions/github-script@v6
@@ -154,14 +168,14 @@ runs:
           <html>
           <body>
           <h1>Secrets Found in the code of ${{github.repository}} repository</h1>
-          <p><strong>Event Type:</strong> ${{ github.event_name == 'pull_request' ? 'Pull Request' : 'Push to ' + github.ref_name + ' branch' }}</p>
+          <p><strong>Event Type:</strong> ${{ env.EVENT_TYPE }}</p>
           <p>Please investigate immediately.</p>
 
           <h3>Links:</h3>
           <ul>
             <li><strong>Repository:</strong> <a href="${{ github.server_url }}/${{ github.repository }}">${{ github.repository }}</a></li>
             <li><strong>Action Run:</strong> <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View GitHub Action Run</a></li>
-            ${{ github.event_name == 'pull_request' ? '<li><strong>Pull Request:</strong> <a href="' + github.event.pull_request.html_url + '">PR #' + github.event.pull_request.number + '</a></li>' : '' }}
+            ${{ env.PR_INFO }}
           </ul>
 
           <h2>Findings Details:</h2>
