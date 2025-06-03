@@ -89,22 +89,16 @@ runs:
           echo "EVENT_TYPE=Pull Request" >> $GITHUB_ENV
           echo "EVENT_URL=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
 
-          # Create the full HTML for the PR card
-          PR_CARD='<a href="${{ github.event.pull_request.html_url }}" class="link-card">
-            <div class="link-card-icon">🔀</div>
-            <div class="link-card-text">
-              <p class="link-card-title">Pull Request</p>
-              <p class="link-card-url">PR #${{ github.event.pull_request.number }}</p>
-            </div>
-          </a>'
+          # Create a simple PR button (only one)
+          PR_BUTTON='<a href="${{ github.event.pull_request.html_url }}" class="button">Pull Request #${{ github.event.pull_request.number }}</a>'
 
-          echo "PR_CARD<<EOF" >> $GITHUB_ENV
-          echo "$PR_CARD" >> $GITHUB_ENV
+          echo "PR_BUTTON<<EOF" >> $GITHUB_ENV
+          echo "$PR_BUTTON" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
         else
           echo "EVENT_TYPE=Push to ${{ github.ref_name }} branch" >> $GITHUB_ENV
           echo "EVENT_URL=${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}" >> $GITHUB_ENV
-          echo "PR_CARD=" >> $GITHUB_ENV
+          echo "PR_BUTTON=" >> $GITHUB_ENV
         fi
 
     - name: Post findings to PR
@@ -282,10 +276,7 @@ runs:
                 <a href="${{ github.server_url }}/${{ github.repository }}" class="button">
                   Repository
                 </a>
-                <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" class="button warning">
-                  Action Run
-                </a>
-                ${{ env.PR_CARD }}
+                ${{ env.PR_BUTTON }}
               </div>
 
               <h3>🔍 Detection Details</h3>
