@@ -14,21 +14,25 @@ runs:
       run: |
         if [ "${{ github.event_name }}" == "push" ]; then
           echo "branch=${{ github.ref_name }}" >> $GITHUB_ENV
+          echo "SCAN_TYPE=full" >> $GITHUB_ENV
         fi
         if [ "${{ github.event_name }}" == "pull_request" ]; then
           echo "branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+          echo "SCAN_TYPE=changes" >> $GITHUB_ENV
+          echo "BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
+          echo "HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
         fi
 
     - uses: actions/checkout@v3
       with:
         ref: ${{env.branch}}
-        fetch-depth: 0
+        fetch-depth: ${{ env.SCAN_TYPE == 'full' && '0' || '100' }}
 
-    # Use the official TruffleHog action
+    # Use the official TruffleHog action with conditional args
     - uses: trufflesecurity/trufflehog@main
       id: trufflehog
       with:
-        extra_args: --results=verified,unknown
+        extra_args: ${{ env.SCAN_TYPE == 'changes' && format('--results=verified,unknown --since-commit={0} --branch {1}', env.BASE_SHA, env.HEAD_SHA) || '--results=verified,unknown' }}
       continue-on-error: true
 
     - name: Capture TruffleHog output
@@ -47,7 +51,11 @@ runs:
           # So we'll use the logs directly from the current process
           # Run TruffleHog again to get detailed output
           echo "Running TruffleHog to get detailed output..."
-          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json > trufflehog_raw_output.txt || true
+          if [ "${{ env.SCAN_TYPE }}" == "changes" ]; then
+            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --results=verified,unknown --since-commit=${{ env.BASE_SHA }} --branch ${{ env.HEAD_SHA }} > trufflehog_raw_output.txt || true
+          else
+            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --results=verified,unknown > trufflehog_raw_output.txt || true
+          fi
 
           # Check if we got any output
           if [ -s trufflehog_raw_output.txt ]; then
