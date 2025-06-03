@@ -30,6 +30,8 @@ runs:
     - uses: trufflesecurity/trufflehog@main
       id: trufflehog
       with:
+        base: ""
+        head: ${{ github.ref_name }}
         extra_args: --results=verified,unknown
       continue-on-error: true
 
