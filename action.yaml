@@ -88,11 +88,23 @@ runs:
         if [ "${{ github.event_name }}" == "pull_request" ]; then
           echo "EVENT_TYPE=Pull Request" >> $GITHUB_ENV
           echo "EVENT_URL=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
-          echo "PR_INFO=<li><strong>Pull Request:</strong> <a href=\"${{ github.event.pull_request.html_url }}\">PR #${{ github.event.pull_request.number }}</a></li>" >> $GITHUB_ENV
+
+          # Create the full HTML for the PR card
+          PR_CARD='<a href="${{ github.event.pull_request.html_url }}" class="link-card">
+            <div class="link-card-icon">🔀</div>
+            <div class="link-card-text">
+              <p class="link-card-title">Pull Request</p>
+              <p class="link-card-url">PR #${{ github.event.pull_request.number }}</p>
+            </div>
+          </a>'
+
+          echo "PR_CARD<<EOF" >> $GITHUB_ENV
+          echo "$PR_CARD" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
         else
           echo "EVENT_TYPE=Push to ${{ github.ref_name }} branch" >> $GITHUB_ENV
           echo "EVENT_URL=${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}" >> $GITHUB_ENV
-          echo "PR_INFO=" >> $GITHUB_ENV
+          echo "PR_CARD=" >> $GITHUB_ENV
         fi
 
     - name: Post findings to PR
@@ -360,7 +372,7 @@ runs:
                   </div>
                 </a>
 
-                ${{ env.PR_INFO != '' ? '<a href="' + env.EVENT_URL + '" class="link-card"><div class="link-card-icon">🔀</div><div class="link-card-text"><p class="link-card-title">Pull Request</p><p class="link-card-url">PR #' + github.event.pull_request.number + '</p></div></a>' : '' }}
+                ${{ env.PR_CARD != '' ? env.PR_CARD : '' }}
 
                 <h2>🔍 Detection Details</h2>
                 <div class="code-block">${{ env.TRUFFLEHOG_FINDINGS }}</div>
