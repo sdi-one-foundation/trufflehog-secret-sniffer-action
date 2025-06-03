@@ -108,15 +108,14 @@ runs:
               }
             end
           )' trufflehog_array.json > trufflehog_output.json
-        fi
 
-        # If processing failed or no detailed output, create a generic message
-        if [ ! -s trufflehog_output.json ] || [ "$(cat trufflehog_output.json)" = "[]" ]; then
-          echo '[{"detection_time":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","repository":"${{ github.repository }}","source":"TruffleHog GitHub Action","message":"Secrets were detected in this repository. For security reasons, detailed information about the secrets is not displayed here. Please review the GitHub Actions log for more details.","recommendation":"Review recent changes for any sensitive information such as API keys, passwords, or private tokens."}]' > trufflehog_output.json
+          # If processing failed or no detailed output, create a generic message
+          if [ ! -s trufflehog_output.json ] || [ "$(cat trufflehog_output.json)" = "[]" ]; then
+            echo '[{"detection_time":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","repository":"${{ github.repository }}","source":"TruffleHog GitHub Action","message":"Secrets were detected in this repository. For security reasons, detailed information about the secrets is not displayed here. Please review the GitHub Actions log for more details.","recommendation":"Review recent changes for any sensitive information such as API keys, passwords, or private tokens."}]' > trufflehog_output.json
+          fi
+        else
+          echo "No secrets found by TruffleHog"
         fi
-      else
-        echo "No secrets found by TruffleHog"
-      fi
 
     - name: Set event type
       if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
