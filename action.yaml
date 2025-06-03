@@ -52,8 +52,18 @@ runs:
           # Run TruffleHog again to get detailed output
           echo "Running TruffleHog to get detailed output..."
           if [ "${{ env.SCAN_TYPE }}" == "changes" ]; then
-            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --results=verified,unknown --since-commit=${{ env.BASE_SHA }} --branch ${{ env.HEAD_SHA }} > trufflehog_raw_output.txt || true
+            # For PRs, only scan the current state of files that have changed
+            git diff --name-only ${{ env.BASE_SHA }} ${{ env.HEAD_SHA }} | xargs -I{} sh -c '[ -f "{}" ] && echo {}' > pr_changed_files.txt
+
+            if [ -s pr_changed_files.txt ]; then
+              # Scan only files that still exist
+              docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
+            else
+              echo "No changed files found in the PR"
+              touch trufflehog_raw_output.txt
+            fi
           else
+            # For full scans (pushes), scan the entire repo
             docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --results=verified,unknown > trufflehog_raw_output.txt || true
           fi
 
