@@ -13,25 +13,21 @@ runs:
     - shell: bash
       run: |
         if [ "${{ github.event_name }}" == "push" ]; then
-          echo "depth=$(($(jq length <<< '${{ toJson(github.event.commits) }}') + 2))" >> $GITHUB_ENV
           echo "branch=${{ github.ref_name }}" >> $GITHUB_ENV
         fi
         if [ "${{ github.event_name }}" == "pull_request" ]; then
-          echo "depth=$((${{ github.event.pull_request.commits }}+2))" >> $GITHUB_ENV
           echo "branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
         fi
 
     - uses: actions/checkout@v3
       with:
         ref: ${{env.branch}}
-        fetch-depth: ${{env.depth}}
+        fetch-depth: 0
 
     # Use the official TruffleHog action
     - uses: trufflesecurity/trufflehog@main
       id: trufflehog
       with:
-        base: ""
-        head: ${{ github.ref_name }}
         extra_args: --results=verified,unknown
       continue-on-error: true
 
