@@ -38,90 +38,85 @@ runs:
     - name: Capture TruffleHog output
       shell: bash
       run: |
-        if [ "${{ steps.trufflehog.outcome }}" == "failure" ]; then
-          echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
+        # The TruffleHog action may have found secrets in deleted files
+        # We'll re-run the scan and only alert if secrets exist in current files
 
-          # Create output directory
-          mkdir -p trufflehog_output
+        # Run TruffleHog again to get detailed output for current files only
+        echo "Running TruffleHog to get detailed output..."
+        if [ "${{ env.SCAN_TYPE }}" == "changes" ]; then
+          # For PRs, only scan the current state of files that have changed
+          git diff --name-only ${{ env.BASE_SHA }} ${{ env.HEAD_SHA }} | xargs -I{} sh -c '[ -f "{}" ] && echo {}' > pr_changed_files.txt
 
-          # Save the TruffleHog output to a temporary file
-          echo "${{ steps.trufflehog.outputs.result }}" > trufflehog_temp.txt
-
-          # The TruffleHog action doesn't provide structured output we can access directly
-          # So we'll use the logs directly from the current process
-          # Run TruffleHog again to get detailed output
-          echo "Running TruffleHog to get detailed output..."
-          if [ "${{ env.SCAN_TYPE }}" == "changes" ]; then
-            # For PRs, only scan the current state of files that have changed
-            git diff --name-only ${{ env.BASE_SHA }} ${{ env.HEAD_SHA }} | xargs -I{} sh -c '[ -f "{}" ] && echo {}' > pr_changed_files.txt
-
-            if [ -s pr_changed_files.txt ]; then
-              # Scan only files that still exist
-              docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
-            else
-              echo "No changed files found in the PR"
-              touch trufflehog_raw_output.txt
-            fi
+          if [ -s pr_changed_files.txt ]; then
+            # Scan only files that still exist
+            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
           else
-            # For full scans (pushes), scan the entire repo
-            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --results=verified,unknown > trufflehog_raw_output.txt || true
-          fi
-
-          # Check if we got any output
-          if [ -s trufflehog_raw_output.txt ]; then
-            echo "Processing detailed TruffleHog output..."
-
-            # Convert line-delimited JSON to array
-            echo "[" > trufflehog_array.json
-            cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | grep -v "finished scanning" | tr '\n' ',' | sed 's/,$//' >> trufflehog_array.json
-            echo "]" >> trufflehog_array.json
-
-            # Process each finding to extract file and line information
-            jq 'map(
-              if .SourceMetadata.Data.Git.file != null then
-                {
-                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                  "repository": "${{ github.repository }}",
-                  "source": "TruffleHog GitHub Action",
-                  "file": .SourceMetadata.Data.Git.file,
-                  "line": .SourceMetadata.Data.Git.line,
-                  "detector_type": .DetectorName,
-                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                  "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
-                }
-              elif .SourceMetadata.Data.Filesystem.file != null then
-                {
-                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                  "repository": "${{ github.repository }}",
-                  "source": "TruffleHog GitHub Action",
-                  "file": .SourceMetadata.Data.Filesystem.file,
-                  "line": .SourceMetadata.Data.Filesystem.line,
-                  "detector_type": .DetectorName,
-                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                  "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
-                }
-              else
-                {
-                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                  "repository": "${{ github.repository }}",
-                  "source": "TruffleHog GitHub Action",
-                  "file": "unknown",
-                  "line": "unknown",
-                  "detector_type": .DetectorName,
-                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                  "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
-                }
-              end
-            )' trufflehog_array.json > trufflehog_output.json
-          fi
-
-          # If processing failed or no detailed output, create a generic message
-          if [ ! -s trufflehog_output.json ] || [ "$(cat trufflehog_output.json)" = "[]" ]; then
-            echo '[{"detection_time":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","repository":"${{ github.repository }}","source":"TruffleHog GitHub Action","message":"Secrets were detected in this repository. For security reasons, detailed information about the secrets is not displayed here. Please review the GitHub Actions log for more details.","recommendation":"Review recent changes for any sensitive information such as API keys, passwords, or private tokens."}]' > trufflehog_output.json
+            echo "No changed files found in the PR"
+            touch trufflehog_raw_output.txt
           fi
         else
-          echo "No secrets found by TruffleHog"
+          # For full scans (pushes), scan the entire repo but only current files
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json /pwd > trufflehog_raw_output.txt || true
         fi
+
+        # Only set the flag if we found secrets in files that still exist
+        if [ -s trufflehog_raw_output.txt ] && [ "$(cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | grep -v "finished scanning" | wc -l)" -gt 0 ]; then
+          echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
+
+          # Process output for notification
+          echo "Processing detailed TruffleHog output..."
+
+          # Convert line-delimited JSON to array
+          echo "[" > trufflehog_array.json
+          cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | grep -v "finished scanning" | tr '\n' ',' | sed 's/,$//' >> trufflehog_array.json
+          echo "]" >> trufflehog_array.json
+
+          # Process each finding to extract file and line information
+          jq 'map(
+            if .SourceMetadata.Data.Git.file != null then
+              {
+                "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                "repository": "${{ github.repository }}",
+                "source": "TruffleHog GitHub Action",
+                "file": .SourceMetadata.Data.Git.file,
+                "line": .SourceMetadata.Data.Git.line,
+                "detector_type": .DetectorName,
+                "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
+              }
+            elif .SourceMetadata.Data.Filesystem.file != null then
+              {
+                "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                "repository": "${{ github.repository }}",
+                "source": "TruffleHog GitHub Action",
+                "file": .SourceMetadata.Data.Filesystem.file,
+                "line": .SourceMetadata.Data.Filesystem.line,
+                "detector_type": .DetectorName,
+                "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
+              }
+            else
+              {
+                "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                "repository": "${{ github.repository }}",
+                "source": "TruffleHog GitHub Action",
+                "file": "unknown",
+                "line": "unknown",
+                "detector_type": .DetectorName,
+                "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
+              }
+            end
+          )' trufflehog_array.json > trufflehog_output.json
+        fi
+
+        # If processing failed or no detailed output, create a generic message
+        if [ ! -s trufflehog_output.json ] || [ "$(cat trufflehog_output.json)" = "[]" ]; then
+          echo '[{"detection_time":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","repository":"${{ github.repository }}","source":"TruffleHog GitHub Action","message":"Secrets were detected in this repository. For security reasons, detailed information about the secrets is not displayed here. Please review the GitHub Actions log for more details.","recommendation":"Review recent changes for any sensitive information such as API keys, passwords, or private tokens."}]' > trufflehog_output.json
+        fi
+      else
+        echo "No secrets found by TruffleHog"
+      fi
 
     - name: Set event type
       if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
