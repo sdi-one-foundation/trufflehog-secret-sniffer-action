@@ -40,13 +40,14 @@ runs:
           if [ "${{ steps.trufflehog.outcome }}" == "failure" ]; then
             echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
 
-            # The output should be available in the action logs
-            # Let's capture it by running TruffleHog again and storing the output
+            # Install trufflehog using pip
+            pip install trufflehog || true
+
+            # Create output directory
             mkdir -p trufflehog_output
 
-            # Use TruffleHog from the action to get the same results
-            /trufflehog --json --results=verified,unknown --github-actions \
-              git file://$(pwd) > trufflehog_raw_output.txt || true
+            # Run TruffleHog and capture its output
+            trufflehog git file://$(pwd) --json --results=verified,unknown > trufflehog_raw_output.txt || true
 
             # Format as proper JSON array
             echo "[" > trufflehog_output.json
