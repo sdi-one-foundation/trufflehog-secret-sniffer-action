@@ -29,9 +29,8 @@ runs:
           
       - uses: trufflesecurity/trufflehog@main
         id: trufflehog
-        continue-on-error: true
         with:
-          extra_args: --results=verified,unknown --json
+          extra_args: --results=verified,unknown
 
       - name: Check for secrets
         if: steps.trufflehog.outcome == 'failure'
