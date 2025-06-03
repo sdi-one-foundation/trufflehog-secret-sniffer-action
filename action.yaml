@@ -128,7 +128,7 @@ runs:
           `;
           }
 
-          const commentBody = `## ⚠️ Security Alert: Secrets Detected by TruffleHog
+          const commentBody = `## ⚠️ Security Alert: Secrets Detected by TruffleHog ⚠️
           This pull request has been scanned for secrets using TruffleHog, and sensitive information has been detected. Please review the findings below and take appropriate action to secure your repository.
 
           TruffleHog has detected secrets in this pull request. Please review and remove any sensitive information.
