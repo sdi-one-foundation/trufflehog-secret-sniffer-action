@@ -166,20 +166,109 @@ runs:
         html_body: |
           <!DOCTYPE html>
           <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 800px;
+                margin: 0 auto;
+                padding: 20px;
+              }
+              .header {
+                background-color: #D32F2F;
+                color: white;
+                padding: 20px;
+                border-radius: 5px 5px 0 0;
+                margin-bottom: 0;
+              }
+              h1, h2, h3 {
+                margin-top: 0;
+              }
+              .content {
+                background-color: #f9f9f9;
+                border: 1px solid #ddd;
+                border-top: none;
+                padding: 20px;
+                border-radius: 0 0 5px 5px;
+              }
+              .alert {
+                background-color: #FFF3E0;
+                border-left: 4px solid #FF9800;
+                padding: 15px;
+                margin-bottom: 20px;
+              }
+              .button {
+                display: inline-block;
+                background-color: #2196F3;
+                color: white;
+                padding: 10px 20px;
+                text-decoration: none;
+                border-radius: 4px;
+                margin-right: 10px;
+                margin-bottom: 10px;
+              }
+              .button.warning {
+                background-color: #FF5722;
+              }
+              .link-list {
+                list-style-type: none;
+                padding-left: 0;
+              }
+              .link-list li {
+                margin-bottom: 12px;
+              }
+              pre {
+                background-color: #f1f1f1;
+                padding: 15px;
+                border-radius: 4px;
+                overflow-x: auto;
+                border: 1px solid #ddd;
+                font-family: monospace;
+                font-size: 13px;
+              }
+              .emoji {
+                font-size: 20px;
+                vertical-align: middle;
+                margin-right: 8px;
+              }
+            </style>
+          </head>
           <body>
-          <h1>Secrets Found in the code of ${{github.repository}} repository</h1>
-          <p><strong>Event Type:</strong> ${{ env.EVENT_TYPE }}</p>
-          <p>Please investigate immediately.</p>
+            <div class="header">
+              <h1>⚠️ Security Alert: Secrets Detected</h1>
+            </div>
+            <div class="content">
+              <div class="alert">
+                <p><strong>Secrets have been detected in the ${{github.repository}} repository.</strong></p>
+                <p><strong>Event Type:</strong> ${{ env.EVENT_TYPE }}</p>
+                <p>Please investigate and remediate immediately. Exposed secrets pose a significant security risk.</p>
+              </div>
 
-          <h3>Links:</h3>
-          <ul>
-            <li><strong>Repository:</strong> <a href="${{ github.server_url }}/${{ github.repository }}">${{ github.repository }}</a></li>
-            <li><strong>Action Run:</strong> <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View GitHub Action Run</a></li>
-            ${{ env.PR_INFO }}
-          </ul>
+              <h3>🔗 Important Links</h3>
+              <ul class="link-list">
+                <li>
+                  <a href="${{ github.server_url }}/${{ github.repository }}" class="button">
+                    View Repository
+                  </a>
+                </li>
+                <li>
+                  <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" class="button warning">
+                    View Action Run
+                  </a>
+                </li>
+                ${{ env.PR_INFO }}
+              </ul>
 
-          <h2>Findings Details:</h2>
-          <pre>${{ env.TRUFFLEHOG_FINDINGS }}</pre>
+              <h3>🔍 Detection Details</h3>
+              <pre>${{ env.TRUFFLEHOG_FINDINGS }}</pre>
+
+              <hr>
+              <p><em>This is an automated security alert from the SingleDigits Foundation Team.</em></p>
+              <p><small>Please do not reply to this email. For assistance, contact the security team.</small></p>
+            </div>
           </body>
           </html>
         ignore_cert: true
