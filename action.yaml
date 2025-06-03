@@ -11,17 +11,59 @@ inputs:
 runs:
   using: "composite"
   steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - shell: bash
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            echo "depth=$(($(jq length <<< '${{ toJson(github.event.commits) }}') + 2))" >> $GITHUB_ENV
+            echo "branch=${{ github.ref_name }}" >> $GITHUB_ENV
+          fi
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "depth=$((${{ github.event.pull_request.commits }}+2))" >> $GITHUB_ENV
+            echo "branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+          fi
+      - uses: actions/checkout@v3
         with:
-          fetch-depth: 0 #Setting `fetch-depth` to `0` ensures that no tags or branches are excluded from the scan
+          ref: ${{env.branch}}
+          fetch-depth: ${{env.depth}}
+      - uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --github-actions --results=verified,unknown --json > trufflehog_output.json || echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
 
-      - name: Secret Scanning
-        uses: trufflesecurity/trufflehog@main
+      - name: Post findings to PR
+        if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' && github.event_name == 'pull_request'
+        uses: actions/github-script@v6
         with:
-          extra_args: --results=verified,unknown
+          github-token: ${{ github.token }}
+          script: |
+            const fs = require('fs');
+            let outputContent;
+            try {
+              outputContent = fs.readFileSync('trufflehog_output.json', 'utf8');
+            } catch (error) {
+              outputContent = "Error reading TruffleHog output, but secrets were detected.";
+            }
+
+            const commentBody = `## ⚠️ Security Alert: Secrets Detected
+
+            TruffleHog has detected secrets in this pull request. Please review and remove any sensitive information.
+
+            <details>
+            <summary>Details (click to expand)</summary>
+
+            \`\`\`json
+            ${outputContent}
+            \`\`\`
+            </details>`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });
 
       - name: Send mail
+        if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
         uses: dawidd6/action-send-mail@v5
         with:
           server_address: email-smtp.us-east-1.amazonaws.com
