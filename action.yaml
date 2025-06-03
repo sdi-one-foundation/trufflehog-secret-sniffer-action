@@ -42,17 +42,26 @@ runs:
           # Create output directory
           mkdir -p trufflehog_output
 
-          # Run TruffleHog again with output capturing
-          # The official action doesn't provide detailed output in a way we can access directly
-          # So we run it again to get the detailed output
-          /usr/local/bin/trufflehog git file://$(pwd) --json > trufflehog_raw_output.txt || true
+          # Save the TruffleHog output to a temporary file
+          echo "${{ steps.trufflehog.outputs.result }}" > trufflehog_temp.txt
 
-          # If we got output, extract the relevant information
+          # The TruffleHog action doesn't provide structured output we can access directly
+          # So we'll use the logs directly from the current process
+          # Run TruffleHog again to get detailed output
+          echo "Running TruffleHog to get detailed output..."
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json > trufflehog_raw_output.txt || true
+
+          # Check if we got any output
           if [ -s trufflehog_raw_output.txt ]; then
-            # Process each line to extract file and line information
-            jq -r '. |
-              select(.SourceMetadata.Data.Git.file != null) |
-              {
+            echo "Processing detailed TruffleHog output..."
+
+            # Convert line-delimited JSON to array
+            echo "[" > trufflehog_array.json
+            cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | grep -v "finished scanning" | tr '\n' ',' | sed 's/,$//' >> trufflehog_array.json
+            echo "]" >> trufflehog_array.json
+
+            # Process each finding to extract file and line information
+            jq 'map(select(.SourceMetadata.Data.Git.file != null) | {
                 "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
                 "repository": "${{ github.repository }}",
                 "source": "TruffleHog GitHub Action",
@@ -61,11 +70,11 @@ runs:
                 "detector_type": .DetectorName,
                 "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
                 "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
-              }' trufflehog_raw_output.txt > trufflehog_output.json
+              })' trufflehog_array.json > trufflehog_output.json
           fi
 
           # If processing failed or no detailed output, create a generic message
-          if [ ! -s trufflehog_output.json ]; then
+          if [ ! -s trufflehog_output.json ] || [ "$(cat trufflehog_output.json)" = "[]" ]; then
             echo '[{"detection_time":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","repository":"${{ github.repository }}","source":"TruffleHog GitHub Action","message":"Secrets were detected in this repository. For security reasons, detailed information about the secrets is not displayed here. Please review the GitHub Actions log for more details.","recommendation":"Review recent changes for any sensitive information such as API keys, passwords, or private tokens."}]' > trufflehog_output.json
           fi
         else
@@ -79,28 +88,42 @@ runs:
         github-token: ${{ github.token }}
         script: |
           const fs = require('fs');
-          let outputContent;
+          let findings = [];
+
           try {
-            outputContent = fs.readFileSync('trufflehog_output.json', 'utf8');
-            // Try to parse and format it nicely for the PR comment
-            const jsonData = JSON.parse(outputContent);
-            outputContent = JSON.stringify(jsonData, null, 2);
+            const outputContent = fs.readFileSync('trufflehog_output.json', 'utf8');
+            findings = JSON.parse(outputContent);
           } catch (error) {
             console.error("Error processing TruffleHog output:", error);
-            outputContent = "Error processing TruffleHog output, but secrets were detected.";
+            findings = [{
+              message: "Error processing TruffleHog output, but secrets were detected."
+            }];
+          }
+
+          // Build a table of findings if we have detailed information
+          let secretsTable = '';
+          if (findings.length > 0 && findings[0].file) {
+            secretsTable = `
+          | File | Line | Type |
+          |------|------|------|
+          ${findings.map(f => `| \`${f.file}\` | ${f.line || 'N/A'} | ${f.detector_type || 'Unknown'} |`).join('\n')}
+          `;
           }
 
           const commentBody = `## ⚠️ Security Alert: Secrets Detected
 
           TruffleHog has detected secrets in this pull request. Please review and remove any sensitive information.
+          ${secretsTable}
 
           <details>
           <summary>Details (click to expand)</summary>
 
           \`\`\`json
-          ${outputContent}
+          ${JSON.stringify(findings, null, 2)}
           \`\`\`
-          </details>`;
+          </details>
+
+          **Important:** Committing secrets to a repository poses significant security risks. Please remove these secrets and consider them compromised.`;
 
           github.rest.issues.createComment({
             issue_number: context.issue.number,
