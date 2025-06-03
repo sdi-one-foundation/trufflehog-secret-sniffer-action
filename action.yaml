@@ -42,8 +42,32 @@ runs:
           # Create output directory
           mkdir -p trufflehog_output
 
-          # Create a JSON file with findings information
-          echo '[{"detection_time":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","repository":"${{ github.repository }}","source":"TruffleHog GitHub Action","message":"Secrets were detected in this repository. For security reasons, detailed information about the secrets is not displayed here. Please review the GitHub Actions log for more details.","recommendation":"Review recent changes for any sensitive information such as API keys, passwords, or private tokens."}]' > trufflehog_output.json
+          # Run TruffleHog again with output capturing
+          # The official action doesn't provide detailed output in a way we can access directly
+          # So we run it again to get the detailed output
+          /usr/local/bin/trufflehog git file://$(pwd) --json > trufflehog_raw_output.txt || true
+
+          # If we got output, extract the relevant information
+          if [ -s trufflehog_raw_output.txt ]; then
+            # Process each line to extract file and line information
+            jq -r '. |
+              select(.SourceMetadata.Data.Git.file != null) |
+              {
+                "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                "repository": "${{ github.repository }}",
+                "source": "TruffleHog GitHub Action",
+                "file": .SourceMetadata.Data.Git.file,
+                "line": .SourceMetadata.Data.Git.line,
+                "detector_type": .DetectorName,
+                "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
+              }' trufflehog_raw_output.txt > trufflehog_output.json
+          fi
+
+          # If processing failed or no detailed output, create a generic message
+          if [ ! -s trufflehog_output.json ]; then
+            echo '[{"detection_time":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","repository":"${{ github.repository }}","source":"TruffleHog GitHub Action","message":"Secrets were detected in this repository. For security reasons, detailed information about the secrets is not displayed here. Please review the GitHub Actions log for more details.","recommendation":"Review recent changes for any sensitive information such as API keys, passwords, or private tokens."}]' > trufflehog_output.json
+          fi
         else
           echo "No secrets found by TruffleHog"
         fi
