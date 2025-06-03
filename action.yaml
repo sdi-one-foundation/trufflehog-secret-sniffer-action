@@ -100,6 +100,10 @@ runs:
             }];
           }
 
+          // Add findings to environment variable for email notification
+          const findingsJSON = JSON.stringify(findings, null, 2);
+          core.exportVariable('TRUFFLEHOG_FINDINGS', findingsJSON);
+
           // Build a table of findings if we have detailed information
           let secretsTable = '';
           if (findings.length > 0 && findings[0].file) {
@@ -110,7 +114,8 @@ runs:
           `;
           }
 
-          const commentBody = `## ⚠️ Security Alert: Secrets Detected
+          const commentBody = `## ⚠️ Security Alert: Secrets Detected by TruffleHog
+          This pull request has been scanned for secrets using TruffleHog, and sensitive information has been detected. Please review the findings below and take appropriate action to secure your repository.
 
           TruffleHog has detected secrets in this pull request. Please review and remove any sensitive information.
           ${secretsTable}
@@ -152,6 +157,9 @@ runs:
           <p>Please investigate immediately.</p>
           <p>You can find the repo at:</p>
           <a href="${{ github.server_url }}/${{ github.repository }}">${{ github.repository }}</a>
+
+          <h2>Findings Details:</h2>
+          <pre>${{ env.TRUFFLEHOG_FINDINGS }}</pre>
           </body>
           </html>
         ignore_cert: true
