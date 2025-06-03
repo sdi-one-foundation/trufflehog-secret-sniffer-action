@@ -46,30 +46,22 @@ runs:
             # Create output directory
             mkdir -p trufflehog_output
 
-            # Run TruffleHog with correct command syntax
-            # Note: Checking the installed version to determine command syntax
-            trufflehog_version=$(trufflehog --version 2>&1 || echo "unknown")
-            echo "TruffleHog version: $trufflehog_version"
+            # Run TruffleHog with correct command syntax for older versions
+            # The version installed by pip requires a git URL
+            repo_url="${{ github.server_url }}/${{ github.repository }}"
+            echo "Using repository URL: $repo_url"
 
-            # Try multiple command syntaxes for different TruffleHog versions
-            echo "Trying git syntax..."
-            trufflehog git file://$(pwd) --json > trufflehog_raw_output.txt || true
-
-            # If empty output, try filesystem syntax
-            if [ ! -s trufflehog_raw_output.txt ]; then
-              echo "Trying filesystem syntax..."
-              trufflehog filesystem $(pwd) --json > trufflehog_raw_output.txt || true
-            fi
-
-            # If still empty, try directory syntax
-            if [ ! -s trufflehog_raw_output.txt ]; then
-              echo "Trying directory syntax..."
-              trufflehog --json --directory=$(pwd) > trufflehog_raw_output.txt || true
-            fi
+            # Run TruffleHog on the GitHub repository directly
+            trufflehog --json "$repo_url" > trufflehog_raw_output.txt || true
 
             # Format as proper JSON array
             echo "[" > trufflehog_output.json
-            cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | tr '\n' ',' | sed 's/,$//' >> trufflehog_output.json
+            if [ -s trufflehog_raw_output.txt ]; then
+              cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | tr '\n' ',' | sed 's/,$//' >> trufflehog_output.json
+            else
+              # If no output, add a placeholder message
+              echo '{"message": "TruffleHog detected secrets but detailed output was not available"}' >> trufflehog_output.json
+            fi
             echo "]" >> trufflehog_output.json
           else
             echo "No secrets found by TruffleHog"
