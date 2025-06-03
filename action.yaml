@@ -51,12 +51,19 @@ runs:
             trufflehog_version=$(trufflehog --version 2>&1 || echo "unknown")
             echo "TruffleHog version: $trufflehog_version"
 
-            # Run TruffleHog with appropriate syntax
-            trufflehog filesystem $(pwd) --json > trufflehog_raw_output.txt || true
+            # Try multiple command syntaxes for different TruffleHog versions
+            echo "Trying git syntax..."
+            trufflehog git file://$(pwd) --json > trufflehog_raw_output.txt || true
 
-            # If empty output, try alternative syntax
+            # If empty output, try filesystem syntax
             if [ ! -s trufflehog_raw_output.txt ]; then
-              echo "Trying alternative syntax..."
+              echo "Trying filesystem syntax..."
+              trufflehog filesystem $(pwd) --json > trufflehog_raw_output.txt || true
+            fi
+
+            # If still empty, try directory syntax
+            if [ ! -s trufflehog_raw_output.txt ]; then
+              echo "Trying directory syntax..."
               trufflehog --json --directory=$(pwd) > trufflehog_raw_output.txt || true
             fi
 
