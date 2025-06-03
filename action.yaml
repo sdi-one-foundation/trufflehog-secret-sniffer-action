@@ -30,7 +30,7 @@ runs:
     - uses: trufflesecurity/trufflehog@main
       id: trufflehog
       with:
-        extra_args: --json --results=verified,unknown
+        extra_args: --results=verified,unknown
       continue-on-error: true
 
     - name: Capture TruffleHog output
