@@ -182,207 +182,105 @@ runs:
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
               body {
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 line-height: 1.6;
-                color: #4a4a4a;
+                color: #333;
                 max-width: 800px;
                 margin: 0 auto;
-                padding: 0;
-                background-color: #f8f9fa;
-              }
-              .container {
-                padding: 0;
-                box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-                border-radius: 16px;
-                overflow: hidden;
-                margin: 20px;
+                padding: 20px;
               }
               .header {
-                background: linear-gradient(135deg, #fe5196 0%, #f77062 100%);
+                background-color: #D32F2F;
                 color: white;
-                padding: 30px;
-                position: relative;
+                padding: 20px;
+                border-radius: 5px 5px 0 0;
+                margin-bottom: 0;
               }
-              h1 {
-                margin: 0;
-                font-size: 24px;
-                font-weight: 600;
-                letter-spacing: -0.5px;
-              }
-              h2 {
-                font-size: 18px;
-                font-weight: 500;
-                margin-top: 30px;
-                margin-bottom: 15px;
-                color: #2e3440;
+              h1, h2, h3 {
+                margin-top: 0;
               }
               .content {
-                background-color: white;
-                padding: 30px;
-              }
-              .alert-card {
-                background-color: white;
-                border-radius: 12px;
+                background-color: #f9f9f9;
+                border: 1px solid #ddd;
+                border-top: none;
                 padding: 20px;
-                margin-bottom: 24px;
-                border-left: 4px solid #ff6b6b;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.04);
+                border-radius: 0 0 5px 5px;
               }
-              .event-tag {
-                display: inline-block;
-                background-color: #4c6ef5;
-                color: white;
-                font-size: 13px;
-                font-weight: 500;
-                padding: 5px 12px;
-                border-radius: 99px;
-                margin-bottom: 15px;
-              }
-              .btn {
-                display: inline-block;
-                background-color: #f8f9fa;
-                color: #495057;
-                text-decoration: none;
-                padding: 10px 20px;
-                border-radius: 8px;
-                font-weight: 500;
-                font-size: 14px;
-                border: 1px solid #dee2e6;
-                margin-right: 8px;
-                margin-bottom: 8px;
-                transition: all 0.2s;
-              }
-              .btn:hover {
-                background-color: #e9ecef;
-              }
-              .btn-primary {
-                background-color: #228be6;
-                color: white;
-                border: none;
-              }
-              .btn-primary:hover {
-                background-color: #1c7ed6;
-              }
-              .btn-danger {
-                background-color: #fa5252;
-                color: white;
-                border: none;
-              }
-              .btn-danger:hover {
-                background-color: #e03131;
-              }
-              .code-block {
-                background-color: #f1f3f5;
-                border-radius: 8px;
+              .alert {
+                background-color: #FFF3E0;
+                border-left: 4px solid #FF9800;
                 padding: 15px;
-                margin: 15px 0;
-                overflow-x: auto;
-                font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-                font-size: 13px;
-                line-height: 1.4;
-                color: #343a40;
-                border: 1px solid #dee2e6;
+                margin-bottom: 20px;
               }
-              .footer {
-                text-align: center;
-                padding: 30px;
-                color: #868e96;
-                font-size: 13px;
-                background-color: #f8f9fa;
-                border-top: 1px solid #e9ecef;
-              }
-              .icon {
+              .button {
                 display: inline-block;
-                width: 24px;
-                height: 24px;
+                background-color: #2196F3;
+                color: white;
+                padding: 10px 20px;
+                text-decoration: none;
+                border-radius: 4px;
+                margin-right: 10px;
+                margin-bottom: 10px;
+              }
+              .button.warning {
+                background-color: #FF5722;
+              }
+              .link-list {
+                list-style-type: none;
+                padding-left: 0;
+              }
+              .link-list li {
+                margin-bottom: 12px;
+              }
+              pre {
+                background-color: #f1f1f1;
+                padding: 15px;
+                border-radius: 4px;
+                overflow-x: auto;
+                border: 1px solid #ddd;
+                font-family: monospace;
+                font-size: 13px;
+              }
+              .emoji {
+                font-size: 20px;
                 vertical-align: middle;
                 margin-right: 8px;
-              }
-              .link-card {
-                background-color: white;
-                border-radius: 12px;
-                padding: 16px;
-                margin-bottom: 16px;
-                display: flex;
-                align-items: center;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.04);
-                text-decoration: none;
-                color: #495057;
-                border: 1px solid #e9ecef;
-                transition: all 0.2s;
-              }
-              .link-card:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 5px 15px rgba(0,0,0,0.08);
-              }
-              .link-card-icon {
-                background-color: #e7f5ff;
-                width: 40px;
-                height: 40px;
-                border-radius: 10px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin-right: 16px;
-                flex-shrink: 0;
-              }
-              .link-card-text {
-                flex-grow: 1;
-              }
-              .link-card-title {
-                font-weight: 600;
-                margin: 0 0 4px 0;
-                color: #343a40;
-              }
-              .link-card-url {
-                font-size: 12px;
-                color: #868e96;
-                margin: 0;
               }
             </style>
           </head>
           <body>
-            <div class="container">
-              <div class="header">
-                <h1>⚠️ Security Alert: Secrets Detected</h1>
-              </div>
-              <div class="content">
-                <span class="event-tag">${{ env.EVENT_TYPE }}</span>
-
-                <div class="alert-card">
-                  <p><strong>Secrets have been detected in the ${{github.repository}} repository.</strong></p>
-                  <p>Please investigate and remediate immediately. Exposed secrets pose a significant security risk.</p>
-                </div>
-
-                <h2>🔗 Links</h2>
-
-                <a href="${{ github.server_url }}/${{ github.repository }}" class="link-card">
-                  <div class="link-card-icon">📁</div>
-                  <div class="link-card-text">
-                    <p class="link-card-title">Repository</p>
-                    <p class="link-card-url">${{ github.repository }}</p>
-                  </div>
-                </a>
-
-                <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" class="link-card">
-                  <div class="link-card-icon">🔍</div>
-                  <div class="link-card-text">
-                    <p class="link-card-title">View Action Run</p>
-                    <p class="link-card-url">Actions › Run #${{ github.run_id }}</p>
-                  </div>
-                </a>
-
-                ${{ env.PR_CARD }}
-
-                <h2>🔍 Detection Details</h2>
-                <div class="code-block">${{ env.TRUFFLEHOG_FINDINGS }}</div>
+            <div class="header">
+              <h1>⚠️ Security Alert: Secrets Detected</h1>
+            </div>
+            <div class="content">
+              <div class="alert">
+                <p><strong>Secrets have been detected in the ${{github.repository}} repository.</strong></p>
+                <p><strong>Event Type:</strong> ${{ env.EVENT_TYPE }}</p>
+                <p>Please investigate and remediate immediately. Exposed secrets pose a significant security risk.</p>
               </div>
 
-              <div class="footer">
-                <p><strong>SingleDigits Foundation Team</strong></p>
-                <p>This is an automated security alert. Please do not reply to this email.</p>
-                <p>For assistance, contact the security team.</p>
-              </div>
+              <h3>🔗 Important Links</h3>
+              <ul class="link-list">
+                <li>
+                  <a href="${{ github.server_url }}/${{ github.repository }}" class="button">
+                    View Repository
+                  </a>
+                </li>
+                <li>
+                  <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" class="button warning">
+                    View Action Run
+                  </a>
+                </li>
+              </ul>
+
+              ${{ env.PR_CARD }}
+
+              <h3>🔍 Detection Details</h3>
+              <pre>${{ env.TRUFFLEHOG_FINDINGS }}</pre>
+
+              <hr>
+              <p><em>This is an automated security alert from the SingleDigits Foundation Team.</em></p>
+              <p><small>Please do not reply to this email. For assistance, contact the security team.</small></p>
             </div>
           </body>
           </html>
