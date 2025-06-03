@@ -1,23 +1,21 @@
 # CHANGELOG
 
-## [v1.3.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.3.0) - 2025-06-03 14:06:12
+## [v1.3.1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.3.1) - 2025-06-03 14:15:00
 
-## What's Changed
-* feat: add posts to PR on found secret by @gallowaystorm in https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/3
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.3.1
 
-
-**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.3.0
-
-### Feature
+### Bug Fixes
 
 - general:
-  - add posts to PR on found secret (#3) ([5cfb809](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/5cfb8090c10f3369c52b5bb0691cc54ac56ee07b)) ([#3](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/3))
+  - remove > from extra_args ([5da6199](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/5da6199c75c5f3c250a71afec8283fe922d8ee80))
 
 ### Miscellaneous
 
 
 - bot:
-  - update files for Release v1.2.1. ([18773be](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/18773be1cf3136a6e36d677abd2785b29d3b0381))
+  - update files for Release v1.3.0. ([cb736c8](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/cb736c8c38c8ad8166a33bd2b91b9dc3e5c291a7))
+
+## [v1.3.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.3.0) - 2025-06-03 14:06:12
 
 ## [v1.2.1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.2.1) - 2025-06-03 13:38:12
 
