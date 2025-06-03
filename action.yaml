@@ -27,7 +27,7 @@ runs:
           fetch-depth: ${{env.depth}}
       - uses: trufflesecurity/trufflehog@main
         with:
-          extra_args: --github-actions --results=verified,unknown
+          extra_args: --results=verified,unknown
 
       - name: Send mail
         uses: dawidd6/action-send-mail@v5
