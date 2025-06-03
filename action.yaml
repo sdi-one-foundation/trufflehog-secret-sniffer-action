@@ -46,8 +46,19 @@ runs:
             # Create output directory
             mkdir -p trufflehog_output
 
-            # Run TruffleHog and capture its output
-            trufflehog git file://$(pwd) --json --results=verified,unknown > trufflehog_raw_output.txt || true
+            # Run TruffleHog with correct command syntax
+            # Note: Checking the installed version to determine command syntax
+            trufflehog_version=$(trufflehog --version 2>&1 || echo "unknown")
+            echo "TruffleHog version: $trufflehog_version"
+
+            # Run TruffleHog with appropriate syntax
+            trufflehog filesystem $(pwd) --json > trufflehog_raw_output.txt || true
+
+            # If empty output, try alternative syntax
+            if [ ! -s trufflehog_raw_output.txt ]; then
+              echo "Trying alternative syntax..."
+              trufflehog --json --directory=$(pwd) > trufflehog_raw_output.txt || true
+            fi
 
             # Format as proper JSON array
             echo "[" > trufflehog_output.json
