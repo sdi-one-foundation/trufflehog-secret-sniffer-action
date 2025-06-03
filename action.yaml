@@ -21,34 +21,45 @@ runs:
             echo "depth=$((${{ github.event.pull_request.commits }}+2))" >> $GITHUB_ENV
             echo "branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
           fi
-          
+
       - uses: actions/checkout@v3
         with:
           ref: ${{env.branch}}
           fetch-depth: ${{env.depth}}
-          
+
+      # Use the official TruffleHog action
       - uses: trufflesecurity/trufflehog@main
         id: trufflehog
-        continue-on-error: true
         with:
-          extra_args: --results=verified,unknown --json
+          extra_args: --json --results=verified,unknown
+        continue-on-error: true
 
       - name: Check for secrets
-        if: steps.trufflehog.outcome == 'failure'
         shell: bash
         run: |
           if [ "${{ steps.trufflehog.outcome }}" == "failure" ]; then
             echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
+            # Create a file with the outputs for debugging
+            echo "TruffleHog found secrets. Output details:" > trufflehog_debug.txt
+            echo "Outcome: ${{ steps.trufflehog.outcome }}" >> trufflehog_debug.txt
+            echo "Output: ${{ steps.trufflehog.outputs.results }}" >> trufflehog_debug.txt
+          else
+            echo "No secrets found by TruffleHog"
           fi
 
       - name: Save TruffleHog output
-        if: steps.trufflehog.outcome == 'failure'
+        if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
         shell: bash
         run: |
-          echo '${{ steps.trufflehog.outputs.results }}' > trufflehog_output.json
+          # Save the results to a file
+          if [ -n "${{ steps.trufflehog.outputs.results }}" ]; then
+            echo '${{ steps.trufflehog.outputs.results }}' > trufflehog_output.json
+          else
+            echo '{"message": "TruffleHog detected secrets but detailed output was not available"}' > trufflehog_output.json
+          fi
 
       - name: Post findings to PR
-        if: steps.trufflehog.outcome == 'failure' && env.TRUFFLEHOG_FOUND_SECRETS == 'true' && github.event_name == 'pull_request'
+        if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' && github.event_name == 'pull_request'
         uses: actions/github-script@v6
         with:
           github-token: ${{ github.token }}
@@ -81,7 +92,7 @@ runs:
             });
 
       - name: Send mail
-        if: steps.trufflehog.outcome == 'failure' && env.TRUFFLEHOG_FOUND_SECRETS == 'true'
+        if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
         uses: dawidd6/action-send-mail@v5
         with:
           server_address: email-smtp.us-east-1.amazonaws.com
