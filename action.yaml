@@ -34,28 +34,26 @@ runs:
           extra_args: --json --results=verified,unknown
         continue-on-error: true
 
-      - name: Check for secrets
+      - name: Capture TruffleHog output
         shell: bash
         run: |
           if [ "${{ steps.trufflehog.outcome }}" == "failure" ]; then
             echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
-            # Create a file with the outputs for debugging
-            echo "TruffleHog found secrets. Output details:" > trufflehog_debug.txt
-            echo "Outcome: ${{ steps.trufflehog.outcome }}" >> trufflehog_debug.txt
-            echo "Output: ${{ steps.trufflehog.outputs.results }}" >> trufflehog_debug.txt
+
+            # The output should be available in the action logs
+            # Let's capture it by running TruffleHog again and storing the output
+            mkdir -p trufflehog_output
+
+            # Use TruffleHog from the action to get the same results
+            /trufflehog --json --results=verified,unknown --github-actions \
+              git file://$(pwd) > trufflehog_raw_output.txt || true
+
+            # Format as proper JSON array
+            echo "[" > trufflehog_output.json
+            cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | tr '\n' ',' | sed 's/,$//' >> trufflehog_output.json
+            echo "]" >> trufflehog_output.json
           else
             echo "No secrets found by TruffleHog"
-          fi
-
-      - name: Save TruffleHog output
-        if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
-        shell: bash
-        run: |
-          # Save the results to a file
-          if [ -n "${{ steps.trufflehog.outputs.results }}" ]; then
-            echo '${{ steps.trufflehog.outputs.results }}' > trufflehog_output.json
-          else
-            echo '{"message": "TruffleHog detected secrets but detailed output was not available"}' > trufflehog_output.json
           fi
 
       - name: Post findings to PR
@@ -68,8 +66,12 @@ runs:
             let outputContent;
             try {
               outputContent = fs.readFileSync('trufflehog_output.json', 'utf8');
+              // Try to parse and format it nicely for the PR comment
+              const jsonData = JSON.parse(outputContent);
+              outputContent = JSON.stringify(jsonData, null, 2);
             } catch (error) {
-              outputContent = "Error reading TruffleHog output, but secrets were detected.";
+              console.error("Error processing TruffleHog output:", error);
+              outputContent = "Error processing TruffleHog output, but secrets were detected.";
             }
 
             const commentBody = `## ⚠️ Security Alert: Secrets Detected
