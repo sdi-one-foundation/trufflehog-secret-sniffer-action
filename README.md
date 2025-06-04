@@ -99,4 +99,3 @@ If you encounter issues with this action:
 1. **No Email Received**: Verify your SES credentials and ensure the email address is verified in AWS SES
 2. **Action Fails**: Check the GitHub Actions logs for detailed error messages
 3. **False Positives**: TruffleHog may occasionally flag non-secret values; review findings carefully
-4. **
