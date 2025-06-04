@@ -332,14 +332,20 @@ runs:
             detector=$(echo "$finding" | jq -r '.detector_type // "Unknown"')
             commit=$(echo "$finding" | jq -r '.commit_hash // "unknown"')
             author=$(echo "$finding" | jq -r '.commit_author // "unknown"')
+            # Extract commit date and format it
+            commit_date=$(echo "$finding" | jq -r '.commit_date // "unknown"')
+            # Format the date nicely if it exists
+            if [ "$commit_date" != "unknown" ] && [ "$commit_date" != "null" ]; then
+              commit_date=$(date -d "$commit_date" +"%Y-%m-%d" 2>/dev/null || echo "$commit_date")
+            fi
 
             # Skip files that are "unknown" as they won't display properly
             if [ "$file" != "unknown" ] && [ "$file" != "N/A (filesystem scan)" ] && [ "${file:0:1}" != "(" ]; then
-              # Create a warning annotation instead of error
-              echo "::warning file=${file},line=${line}::Secret detected: ${detector} - Author: ${author} - Commit: ${commit:0:7}"
+              # Create a warning annotation with date
+              echo "::warning file=${file},line=${line}::Secret detected: ${detector} - Author: ${author} - Date: ${commit_date} - Commit: ${commit:0:7}"
             else
-              # For unknown locations, just output a general warning
-              echo "::warning::Secret detected: ${detector} in unknown location - Author: ${author} - Commit: ${commit:0:7}"
+              # For unknown locations, just output a general warning with date
+              echo "::warning::Secret detected: ${detector} in unknown location - Author: ${author} - Date: ${commit_date} - Commit: ${commit:0:7}"
             fi
           done
         fi
