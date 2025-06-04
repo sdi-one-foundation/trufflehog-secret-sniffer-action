@@ -97,6 +97,9 @@ runs:
                     "file": .SourceMetadata.Data.Git.file,
                     "line": .SourceMetadata.Data.Git.line,
                     "detector_type": .DetectorName,
+                    "commit_hash": .SourceMetadata.Data.Git.commit,
+                    "commit_author": .SourceMetadata.Data.Git.email,
+                    "commit_date": .SourceMetadata.Data.Git.timestamp,
                     "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
                     "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
                   }
@@ -108,6 +111,8 @@ runs:
                     "file": .SourceMetadata.Data.Filesystem.file,
                     "line": .SourceMetadata.Data.Filesystem.line,
                     "detector_type": .DetectorName,
+                    "commit_hash": "N/A (filesystem scan)",
+                    "commit_author": "N/A (filesystem scan)",
                     "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
                     "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
                   }
@@ -119,6 +124,8 @@ runs:
                     "file": (.SourceMetadata | tostring | .[0:100] + "..."),
                     "line": "unknown",
                     "detector_type": .DetectorName,
+                    "commit_hash": (.SourceMetadata.Data.Git.commit // "unknown"),
+                    "commit_author": (.SourceMetadata.Data.Git.email // "unknown"),
                     "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
                     "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
                   }
@@ -130,6 +137,8 @@ runs:
                     "file": "unknown",
                     "line": "unknown",
                     "detector_type": (.DetectorName // "Unknown"),
+                    "commit_hash": "unknown",
+                    "commit_author": "unknown",
                     "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
                     "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
                   }
@@ -423,9 +432,6 @@ runs:
                 <p><strong>Event Type:</strong> ${{ env.EVENT_TYPE }}</p>
                 <p>Please investigate and remediate immediately. Exposed secrets pose a significant security risk.</p>
               </div>
-
-              <h3>📝 Commit Details</h3>
-              ${{ env.COMMIT_DETAILS }}
 
               <h3>🔗 Important Links</h3>
               <ol class="link-list">
