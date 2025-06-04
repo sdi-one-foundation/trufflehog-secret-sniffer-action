@@ -1,56 +1,46 @@
 # TruffleHog Secret Sniffer Action
 
-A composite GitHub Action for running TruffleHog to detect secrets in your repository. This action scans your codebase for sensitive information such as API keys, passwords, and tokens to prevent accidental exposure of credentials.
-
-A global tag will be created (see release.yml) on every release. This global tag will have the format of "v\<major version\>" (example: v1). This global tag will point to the most recent release. The input needs to be changed upon every major version change (v1 to v2).
+A GitHub Action that uses TruffleHog to scan your repository for secrets and sensitive information. If secrets are found, it will fail the action, post annotations on the code, comment on pull requests, and notify the team via email.
 
 ## Features
 
-- **Automated Secret Detection**: Leverages TruffleHog to find exposed secrets in your code
-- **Pull Request Comments**: Automatically comments on PRs with details about detected secrets
-- **Email Notifications**: Sends detailed email alerts when secrets are found
-- **Configurable**: Works with both push events and pull requests
+- **Smart Scanning**:
+  - For pull requests: Only scans files that have changed and still exist (ignores deleted files)
+  - For pushes to main: Performs a comprehensive scan of the entire Git history
+- **Detailed Reporting**:
+  - GitHub code annotations with commit details and dates
+  - Pull request comments with tabular findings
+  - Email notifications with statistics and detailed findings
+- **Secret Context**:
+  - Shows which files contain secrets
+  - Displays commit information (hash, author, date)
+  - Categorizes secrets by type
+- **Workflow Integration**:
+  - Fails the build when secrets are detected
+  - Creates clear visual indicators in GitHub UI
 
-## How It Works
+## Setup
 
-This action performs the following steps:
-
-1. **Checkout Code**: Uses `actions/checkout` to get your repository code
-2. **Run TruffleHog**: Scans your repository using the official TruffleHog action
-3. **Process Results**: Analyzes the TruffleHog output to extract useful information
-4. **Notify Developers**: Posts comments on pull requests with details about detected secrets
-5. **Send Email Alert**: Sends an email notification to the security team with detailed findings
-6. **Fail Build**: If secrets are detected, the workflow will fail to prevent merging code with secrets
-
-## Usage
+1. Add the action to your workflow YAML file:
 
 ```yaml
-name: Secret Sniffer - TruffleHog
-description: |
-  This workflow runs TruffleHog to detect secrets in the repository.
-  It is triggered on every push to the main branch.
+name: Security Scan
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    types: [opened, synchronize, reopened]
-  workflow_dispatch:
+    branches: [main]
 
 jobs:
-  trufflehog:
+  scan-for-secrets:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-
     steps:
-      - name: Secret Scanning Action
+      - name: Scan for secrets
         uses: sdi-one-foundation/trufflehog-secret-sniffer-action@v1
         with:
-            ses-username: ${{secrets.FOUNDATION_SES_USERNAME}}
-            ses-password: ${{secrets.FOUNDATION_SES_PASSWORD}}
+          ses-username: ${{ secrets.SES_USERNAME }}
+          ses-password: ${{ secrets.SES_PASSWORD }}
 ```
 
 ## Configuration
@@ -71,7 +61,7 @@ The email contains:
 - A warning header identifying that secrets were detected
 - Information about the repository and event type
 - Links to the repository, GitHub Action run, and pull request (if applicable)
-- Details about the detected secrets including file and line information
+- Details about the detected secrets including file and line information, commit number, author, and date of commit
 - Recommendations for remediation
 
 ## Example PR Comment
