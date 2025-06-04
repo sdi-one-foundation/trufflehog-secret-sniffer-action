@@ -61,21 +61,21 @@ runs:
           grep "finished scanning" trufflehog_raw_output.txt || echo "No scan info found"
         fi
 
-        # Only set the flag if we found secrets in files that still exist
+        # Only set the flag if we found secrets
         if [ -s trufflehog_raw_output.txt ]; then
-          # First check if we have any secrets
-          SECRETS_COUNT=$(grep -o '"unverified_secrets":[0-9]*' trufflehog_raw_output.txt | grep -o '[0-9]*' || echo "0")
-          VERIFIED_COUNT=$(grep -o '"verified_secrets":[0-9]*' trufflehog_raw_output.txt | grep -o '[0-9]*' || echo "0")
+          # Count actual findings (not metadata lines)
+          FINDINGS_COUNT=$(cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | grep -v "finished scanning" | wc -l)
 
           # Debug the raw output
           echo "Raw output sample (first 50 lines):"
           head -n 50 trufflehog_raw_output.txt
 
-          if [ "$SECRETS_COUNT" -gt 0 ] || [ "$VERIFIED_COUNT" -gt 0 ]; then
+          if [ "$FINDINGS_COUNT" -gt 0 ]; then
+            echo "Found $FINDINGS_COUNT potential secrets"
             echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
 
             # Process output for notification
-            echo "Processing detailed TruffleHog output (found $VERIFIED_COUNT verified and $SECRETS_COUNT unverified secrets)..."
+            echo "Processing detailed TruffleHog output (found $FINDINGS_COUNT findings)..."
 
             # Extract the actual findings (non-metadata lines)
             cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | grep -v "finished scanning" > trufflehog_findings.txt
