@@ -24,23 +24,29 @@ A GitHub Action that uses TruffleHog to scan your repository for secrets and sen
 1. Add the action to your workflow YAML file:
 
 ```yaml
-name: Security Scan
+name: Secret Sniffer - TruffleHog
+description: |
+  This workflow runs TruffleHog to detect secrets in the repository.
+  It is triggered on every push to the main branch.
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 jobs:
-  scan-for-secrets:
+  trufflehog:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
     steps:
-      - name: Scan for secrets
+      - name: Secret Scanning Action
         uses: sdi-one-foundation/trufflehog-secret-sniffer-action@v1
-        with:
-          ses-username: ${{ secrets.SES_USERNAME }}
-          ses-password: ${{ secrets.SES_PASSWORD }}
 ```
 
 ## Configuration
