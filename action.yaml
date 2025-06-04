@@ -316,6 +316,34 @@ runs:
             body: commentBody
           });
 
+    # Add this step right after processing the findings but before the PR comment
+    - name: Create GitHub Annotations for findings
+      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
+      shell: bash
+      run: |
+        # Read the findings and create annotations
+        if [ -s trufflehog_output.json ]; then
+          echo "Creating GitHub annotations for findings..."
+
+          # Process each finding to create an annotation
+          jq -c '.[]' trufflehog_output.json | while read -r finding; do
+            file=$(echo "$finding" | jq -r '.file // "unknown"')
+            line=$(echo "$finding" | jq -r '.line // "1"')
+            detector=$(echo "$finding" | jq -r '.detector_type // "Unknown"')
+            commit=$(echo "$finding" | jq -r '.commit_hash // "unknown"')
+            author=$(echo "$finding" | jq -r '.commit_author // "unknown"')
+
+            # Skip files that are "unknown" as they won't display properly
+            if [ "$file" != "unknown" ] && [ "$file" != "N/A (filesystem scan)" ] && [ "${file:0:1}" != "(" ]; then
+              # Create an error annotation
+              echo "::error file=${file},line=${line}::Secret detected: ${detector} - Author: ${author} - Commit: ${commit:0:7}"
+            else
+              # For unknown locations, just output a general error
+              echo "::error::Secret detected: ${detector} in unknown location - Author: ${author} - Commit: ${commit:0:7}"
+            fi
+          done
+        fi
+
     - name: Send mail
       if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
       uses: dawidd6/action-send-mail@v5
