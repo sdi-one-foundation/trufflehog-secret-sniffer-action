@@ -159,6 +159,29 @@ runs:
           echo "No TruffleHog output found"
         fi
 
+    - name: Export findings for notification
+      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          let findings = [];
+
+          try {
+            const outputContent = fs.readFileSync('trufflehog_output.json', 'utf8');
+            findings = JSON.parse(outputContent);
+            console.log("Successfully parsed findings for notification");
+          } catch (error) {
+            console.error("Error processing TruffleHog output:", error);
+            findings = [{
+              message: "Error processing TruffleHog output, but secrets were detected."
+            }];
+          }
+
+          // Add findings to environment variable for email notification
+          const findingsJSON = JSON.stringify(findings, null, 2);
+          core.exportVariable('TRUFFLEHOG_FINDINGS', findingsJSON);
+
     - name: Set event type
       if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
       shell: bash
@@ -198,9 +221,8 @@ runs:
             }];
           }
 
-          // Add findings to environment variable for email notification
-          const findingsJSON = JSON.stringify(findings, null, 2);
-          core.exportVariable('TRUFFLEHOG_FINDINGS', findingsJSON);
+          // Remove this line as it's now in the separate step
+          // core.exportVariable('TRUFFLEHOG_FINDINGS', JSON.stringify(findings, null, 2));
 
           // Build a table of findings if we have detailed information
           let secretsTable = '';
