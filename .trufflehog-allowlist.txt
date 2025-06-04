@@ -5,3 +5,4 @@
 # dummy_password
 # jdbc:postgresql://localhost.*
 
+AKIAUM4G6O6NC64Z*
