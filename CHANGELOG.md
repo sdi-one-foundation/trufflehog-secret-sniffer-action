@@ -1,5 +1,53 @@
 # CHANGELOG
 
+## [v1.5.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.5.0) - 2025-06-04 14:41:43
+
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.5.0
+
+### Feature
+
+- general:
+  - add action annotations ([59aa950](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/59aa950b53061e4302c1443560686f0c1108d47c))
+  - scan whole branch and add readme ([f93abd8](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/f93abd81b4d225f74417433830498d951008679b))
+
+### Bug Fixes
+
+- general:
+  - populate email with findings on main push ([14790a2](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/14790a24aa17ecd7a59fb5c9fbc11510fa91ab96))
+  - fix not sending alerts when finding found ([3324593](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/3324593f25a7fb3647008673fbc350361a7d74f4))
+  - fix details passed to email when unverified secret ([d981148](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/d9811483fd34bc9612b78d9e655f2edba8e4d49f))
+  - scan deeper in commits on main push ([98e94cb](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/98e94cbe5b4b82c7234fb554b51439e262162ff5))
+  - fix yaml formatting ([18d2d11](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/18d2d11f057a6d6bbf8ed0b1dd8a156a55c79f26))
+  - only alert if we did not delete the finding ([76dbd8d](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/76dbd8dd22c48d3b33c52201fe92ceecc6f91bce))
+  - fix no line number when only 1 finding ([47d98cf](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/47d98cfda8a1fbcbc6a38286e005ce88e0d266dc))
+  - change to only scan current files on PR ([a3c85ba](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/a3c85baa842e3ba946adbe945ff67097418ba02c))
+  - remove duplicate args ([e5b7c25](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/e5b7c25d751115636e6e80c2fe95a37ba9a96670))
+  - remove since commit flag ([1472293](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/14722937748eb153e980d0c19b6fed475d79e9c3))
+  - only scan changed files on the PR ([2e682e4](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/2e682e4a2d428bf1f91521927dcf7923c5a74200))
+  - scan entire branch ([b817359](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/b817359f8fd739bffe1b273fef58a6da8fa9a1bf))
+  - make links a list on email ([8780d31](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/8780d3178e9770d36575ec684920f4fabd63facb))
+  - ternary operator #3 ([c854204](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/c85420446bc145c92f492c2f05af530e5e193be7))
+  - ternary operator again ([2b4e189](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/2b4e18997e1c22958646f94a2494f1995cae1010))
+  - fix ternary operator in email ([80f0d96](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/80f0d969c5141f2d6039946798dca2d2184ecfe5))
+
+### Miscellaneous
+
+
+- general:
+  - update usage on readme ([aab024f](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/aab024f4ebc42391412d9ed0f674498678c711fb))
+  - update Readme ([d593e2c](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/d593e2c64a922ac2ea8a66a44c8d15755998ebfb))
+  - add commit date to annotations on main push ([5f913f9](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/5f913f97da4fd1fbafc7d073893d6feae194daaf))
+  - change error annotation to warning ([95c17c0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/95c17c0474c64cc648dd7d2696b9fb51863d32ff))
+  - move commit details to finding details ([7ae8124](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/7ae8124f164ed18d03cb11e6e9ea76f0313730f6))
+  - add more details about commits to email ([8e2f96f](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/8e2f96f766102ee079046deccab39ee4072487ae))
+  - replace official github action with docker version ([1ebec50](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/1ebec503058cfce1ed1fe190b289a0c98fdb3efe))
+  - make important links section look less blocky ([7720629](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/7720629287f8d484f04d4d2aeb158fa060624825))
+  - revert to original template for email ([907302d](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/907302dfa610cd5fe256527c6d6356ec8e6f1337))
+  - make email more modern ([4aea74d](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/4aea74d1cce3197b530ac8ab62cd198bee437734))
+
+- bot:
+  - update files for Release v1.4.1. ([1a0df43](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/1a0df43708153d003242fd2e38000c21e0526910))
+
 ## [v1.4.1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.4.1) - 2025-06-03 17:39:22
 
 **Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.4.1
