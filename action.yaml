@@ -159,6 +159,24 @@ runs:
           echo "No TruffleHog output found"
         fi
 
+        # Add secret statistics to the environment
+        if [ -s trufflehog_output.json ]; then
+          echo "SECRET_STATS<<EOF" >> $GITHUB_ENV
+          echo "<ul>" >> $GITHUB_ENV
+          jq -r 'group_by(.detector_type) | map({type: .[0].detector_type, count: length}) | .[] | "<li><strong>" + .type + ":</strong> " + (.count|tostring) + "</li>"' trufflehog_output.json >> $GITHUB_ENV
+          echo "</ul>" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        fi
+
+        # Add file statistics to the environment
+        if [ -s trufflehog_output.json ]; then
+          echo "FILE_STATS<<EOF" >> $GITHUB_ENV
+          echo "<ul>" >> $GITHUB_ENV
+          jq -r 'group_by(.file) | map({file: .[0].file, count: length}) | .[] | "<li><code>" + .file + "</code>: " + (.count|tostring) + " finding(s)</li>"' trufflehog_output.json >> $GITHUB_ENV
+          echo "</ul>" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        fi
+
     - name: Export findings for notification
       if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
       uses: actions/github-script@v6
@@ -182,13 +200,26 @@ runs:
           const findingsJSON = JSON.stringify(findings, null, 2);
           core.exportVariable('TRUFFLEHOG_FINDINGS', findingsJSON);
 
-    - name: Set event type
+    - name: Set event type and capture commit details
       if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
       shell: bash
       run: |
         if [ "${{ github.event_name }}" == "pull_request" ]; then
           echo "EVENT_TYPE=Pull Request" >> $GITHUB_ENV
           echo "EVENT_URL=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
+
+          # Get PR commit details
+          echo "COMMIT_DETAILS<<EOF" >> $GITHUB_ENV
+          echo "<table>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>PR Title:</strong></td><td>${{ github.event.pull_request.title }}</td></tr>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>PR Number:</strong></td><td>#${{ github.event.pull_request.number }}</td></tr>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>Base Commit:</strong></td><td><code>${{ github.event.pull_request.base.sha }}</code></td></tr>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>Head Commit:</strong></td><td><code>${{ github.event.pull_request.head.sha }}</code></td></tr>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>Commits in PR:</strong></td><td>${{ github.event.pull_request.commits }}</td></tr>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>Author:</strong></td><td>${{ github.event.pull_request.user.login }}</td></tr>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>Last Updated:</strong></td><td>${{ github.event.pull_request.updated_at }}</td></tr>" >> $GITHUB_ENV
+          echo "</table>" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
           # Create a list item for PR (only shown for pull requests)
           PR_LIST_ITEM='<li><a href="${{ github.event.pull_request.html_url }}">Pull Request #${{ github.event.pull_request.number }}</a></li>'
@@ -199,6 +230,25 @@ runs:
         else
           echo "EVENT_TYPE=Push to ${{ github.ref_name }} branch" >> $GITHUB_ENV
           echo "EVENT_URL=${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}" >> $GITHUB_ENV
+
+          # Get push commit details
+          echo "COMMIT_DETAILS<<EOF" >> $GITHUB_ENV
+          echo "<table>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>Branch:</strong></td><td>${{ github.ref_name }}</td></tr>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>Commit SHA:</strong></td><td><code>${{ github.sha }}</code></td></tr>" >> $GITHUB_ENV
+
+          # Get the commit message and author
+          COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s")
+          COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
+          COMMIT_EMAIL=$(git log -1 --pretty=format:"%ae")
+          COMMIT_DATE=$(git log -1 --pretty=format:"%ad" --date=format:"%Y-%m-%d %H:%M:%S")
+
+          echo "  <tr><td><strong>Commit Message:</strong></td><td>${COMMIT_MESSAGE}</td></tr>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>Author:</strong></td><td>${COMMIT_AUTHOR} (${COMMIT_EMAIL})</td></tr>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>Commit Date:</strong></td><td>${COMMIT_DATE}</td></tr>" >> $GITHUB_ENV
+          echo "</table>" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
           echo "PR_LIST_ITEM=" >> $GITHUB_ENV
         fi
 
@@ -374,6 +424,9 @@ runs:
                 <p>Please investigate and remediate immediately. Exposed secrets pose a significant security risk.</p>
               </div>
 
+              <h3>📝 Commit Details</h3>
+              ${{ env.COMMIT_DETAILS }}
+
               <h3>🔗 Important Links</h3>
               <ol class="link-list">
                 <li>
@@ -388,6 +441,18 @@ runs:
                 </li>
                 ${{ env.PR_LIST_ITEM }}
               </ol>
+
+              <h3>📊 Secret Statistics</h3>
+              <div class="stats-container">
+                <div>
+                  <h4>By Type</h4>
+                  ${{ env.SECRET_STATS }}
+                </div>
+                <div>
+                  <h4>By File</h4>
+                  ${{ env.FILE_STATS }}
+                </div>
+              </div>
 
               <h3>🔍 Detection Details</h3>
               <pre>${{ env.TRUFFLEHOG_FINDINGS }}</pre>
