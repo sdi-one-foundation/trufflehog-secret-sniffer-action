@@ -335,11 +335,11 @@ runs:
 
             # Skip files that are "unknown" as they won't display properly
             if [ "$file" != "unknown" ] && [ "$file" != "N/A (filesystem scan)" ] && [ "${file:0:1}" != "(" ]; then
-              # Create an error annotation
-              echo "::error file=${file},line=${line}::Secret detected: ${detector} - Author: ${author} - Commit: ${commit:0:7}"
+              # Create a warning annotation instead of error
+              echo "::warning file=${file},line=${line}::Secret detected: ${detector} - Author: ${author} - Commit: ${commit:0:7}"
             else
-              # For unknown locations, just output a general error
-              echo "::error::Secret detected: ${detector} in unknown location - Author: ${author} - Commit: ${commit:0:7}"
+              # For unknown locations, just output a general warning
+              echo "::warning::Secret detected: ${detector} in unknown location - Author: ${author} - Commit: ${commit:0:7}"
             fi
           done
         fi
