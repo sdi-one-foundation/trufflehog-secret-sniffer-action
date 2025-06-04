@@ -43,16 +43,25 @@ runs:
             # Check if the repo has its own allowlist
             if [ -f ".trufflehog-allowlist.txt" ]; then
               echo "Using repository's allowlist file"
-              ALLOWLIST_PATH="/pwd/.trufflehog-allowlist.txt"
+              # Create a regex pattern from the allowlist file
+              EXCLUDE_PATTERNS=""
+              while IFS= read -r line || [ -n "$line" ]; do
+                # Skip comments and empty lines
+                if [[ ! "$line" =~ ^[[:space:]]*# && -n "$line" ]]; then
+                  EXCLUDE_PATTERNS="$EXCLUDE_PATTERNS --exclude-pattern '$line'"
+                fi
+              done < .trufflehog-allowlist.txt
+
+              # Run with exclude patterns
+              docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $EXCLUDE_PATTERNS $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
             else
-              # Use the built-in allowlist from the action
-              echo "Using built-in allowlist file"
-              ALLOWLIST_PATH="/pwd/.github/actions/trufflehog-secret-sniffer-action/.trufflehog-allowlist.txt"
+              # Run without exclusions
+              docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
             fi
 
             # Scan only files that still exist
             # For PR scanning (filesystem mode)
-            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --exclude-file ${ALLOWLIST_PATH} --json $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
+            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
           else
             echo "No changed files found in the PR"
             touch trufflehog_raw_output.txt
@@ -73,8 +82,8 @@ runs:
           git fetch --unshallow || true
 
           # Run with both verified and unverified results
-          # For git scanning (replace the command in the 'else' clause)
-          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --exclude-file ${ALLOWLIST_PATH} --json --results=verified,unknown,unverified > trufflehog_raw_output.txt || true
+          # For git scanning
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --results=verified,unknown,unverified > trufflehog_raw_output.txt || true
         fi
 
         # Only set the flag if we found secrets
