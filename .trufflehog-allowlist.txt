@@ -1,0 +1,7 @@
+# Default TruffleHog Allowlist for common false positives
+# Each line is a regular expression pattern
+# Ignore specific patterns example:
+# test_aws_key
+# dummy_password
+# jdbc:postgresql://localhost.*
+

@@ -40,25 +40,39 @@ runs:
           git diff --name-only ${{ env.BASE_SHA }} ${{ env.HEAD_SHA }} | xargs -I{} sh -c '[ -f "{}" ] && echo {}' > pr_changed_files.txt
 
           if [ -s pr_changed_files.txt ]; then
+            # Check if the repo has its own allowlist
+            if [ -f ".trufflehog-allowlist.txt" ]; then
+              echo "Using repository's allowlist file"
+              ALLOWLIST_PATH="/pwd/.trufflehog-allowlist.txt"
+            else
+              # Use the built-in allowlist from the action
+              echo "Using built-in allowlist file"
+              ALLOWLIST_PATH="/pwd/.github/actions/trufflehog-secret-sniffer-action/.trufflehog-allowlist.txt"
+            fi
+
             # Scan only files that still exist
-            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
+            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --allow-list ${ALLOWLIST_PATH} --json $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
           else
             echo "No changed files found in the PR"
             touch trufflehog_raw_output.txt
           fi
         else
-          # For full scans (pushes), scan the entire repo history more aggressively
-          echo "Running full git history scan..."
+          # For full scans (pushes), scan the entire repo history
+          # Check if the repo has its own allowlist
+          if [ -f ".trufflehog-allowlist.txt" ]; then
+            echo "Using repository's allowlist file"
+            ALLOWLIST_PATH="/pwd/.trufflehog-allowlist.txt"
+          else
+            # Use the built-in allowlist from the action
+            echo "Using built-in allowlist file"
+            ALLOWLIST_PATH="/pwd/.github/actions/trufflehog-secret-sniffer-action/.trufflehog-allowlist.txt"
+          fi
 
           # First make sure we have the full history
           git fetch --unshallow || true
 
-          # Run with both verified and unverified results to catch more potential issues
-          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --results=verified,unknown,unverified > trufflehog_raw_output.txt || true
-
-          # Also show the scanning parameters for debugging
-          echo "TruffleHog version and scan info:"
-          grep "finished scanning" trufflehog_raw_output.txt || echo "No scan info found"
+          # Run with both verified and unverified results
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --allow-list ${ALLOWLIST_PATH} --json --results=verified,unknown,unverified > trufflehog_raw_output.txt || true
         fi
 
         # Only set the flag if we found secrets
