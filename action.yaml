@@ -36,54 +36,57 @@ runs:
         # Run TruffleHog to scan for secrets
         echo "Running TruffleHog to scan for secrets..."
         if [ "${{ env.SCAN_TYPE }}" == "changes" ]; then
-          # For PRs, only scan the current state of files that have changed
+          # For PRs, scan the changed files
           git diff --name-only ${{ env.BASE_SHA }} ${{ env.HEAD_SHA }} | xargs -I{} sh -c '[ -f "{}" ] && echo {}' > pr_changed_files.txt
 
           if [ -s pr_changed_files.txt ]; then
-            # Check if the repo has its own allowlist
-            if [ -f ".trufflehog-allowlist.txt" ]; then
-              echo "Using repository's allowlist file"
-              # Create a regex pattern from the allowlist file
-              EXCLUDE_PATTERNS=""
-              while IFS= read -r line || [ -n "$line" ]; do
-                # Skip comments and empty lines
-                if [[ ! "$line" =~ ^[[:space:]]*# && -n "$line" ]]; then
-                  EXCLUDE_PATTERNS="$EXCLUDE_PATTERNS --exclude-pattern '$line'"
-                fi
-              done < .trufflehog-allowlist.txt
-
-              # Run with exclude patterns
-              docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $EXCLUDE_PATTERNS $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
-            else
-              # Run without exclusions
-              docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
-            fi
-
-            # Scan only files that still exist
-            # For PR scanning (filesystem mode)
-            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_output.txt || true
+            # Run without exclusions first
+            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_unfiltered.txt || true
           else
             echo "No changed files found in the PR"
-            touch trufflehog_raw_output.txt
+            touch trufflehog_raw_unfiltered.txt
           fi
         else
           # For full scans (pushes), scan the entire repo history
-          # Check if the repo has its own allowlist
-          if [ -f ".trufflehog-allowlist.txt" ]; then
-            echo "Using repository's allowlist file"
-            ALLOWLIST_PATH="/pwd/.trufflehog-allowlist.txt"
-          else
-            # Use the built-in allowlist from the action
-            echo "Using built-in allowlist file"
-            ALLOWLIST_PATH="/pwd/.github/actions/trufflehog-secret-sniffer-action/.trufflehog-allowlist.txt"
-          fi
-
-          # First make sure we have the full history
           git fetch --unshallow || true
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --results=verified,unknown,unverified > trufflehog_raw_unfiltered.txt || true
+        fi
 
-          # Run with both verified and unverified results
-          # For git scanning
-          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --results=verified,unknown,unverified > trufflehog_raw_output.txt || true
+        # Post-process to apply allowlist filtering
+        if [ -f ".trufflehog-allowlist.txt" ]; then
+          echo "Filtering results using repository's allowlist file..."
+          # Initialize empty output file
+          > trufflehog_raw_output.txt
+
+          # Filter out findings that match patterns in the allowlist
+          cat trufflehog_raw_unfiltered.txt | while read -r line; do
+            if [[ "$line" == *"level"* || "$line" == *"finished scanning"* ]]; then
+              # Always keep metadata lines
+              echo "$line" >> trufflehog_raw_output.txt
+            else
+              # For actual findings, check against allowlist patterns
+              EXCLUDE=false
+              while IFS= read -r pattern || [ -n "$pattern" ]; do
+                # Skip comments and empty lines
+                if [[ ! "$pattern" =~ ^[[:space:]]*# && -n "$pattern" ]]; then
+                  if echo "$line" | grep -q "$pattern"; then
+                    EXCLUDE=true
+                    echo "Excluding finding matching pattern: $pattern"
+                    break
+                  fi
+                fi
+              done < .trufflehog-allowlist.txt
+
+              if [ "$EXCLUDE" = false ]; then
+                echo "$line" >> trufflehog_raw_output.txt
+              fi
+            fi
+          done
+
+          echo "Filtering complete. Before: $(grep -v "level\|finished scanning" trufflehog_raw_unfiltered.txt | wc -l) findings, After: $(grep -v "level\|finished scanning" trufflehog_raw_output.txt | wc -l) findings"
+        else
+          echo "No allowlist file found, using unfiltered results"
+          cp trufflehog_raw_unfiltered.txt trufflehog_raw_output.txt
         fi
 
         # Only set the flag if we found secrets

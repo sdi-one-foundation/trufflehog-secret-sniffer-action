@@ -1,8 +1,9 @@
 # Default TruffleHog Allowlist for common false positives
-# Each line is a regular expression pattern
-# Ignore specific patterns example:
-# test_aws_key
-# dummy_password
-# jdbc:postgresql://localhost.*
+# Each line is a regular expression pattern that will be used with grep
 
-AKIAUM4G6O6NC64Z*
+# AWS Test Keys
+AKIAUM4G6O6NC64ZQ4IO
+T4e8WwAOZwuH5rxWCTm+J4wjHPcDMNm9Rl9r3nok
+
+# Common false positives
+jdbc:postgresql://localhost
