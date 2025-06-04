@@ -1,5 +1,5 @@
 # Default TruffleHog Allowlist for common false positives
-# Each line is a regular expression pattern that will be used with grep
+# Each line is a string pattern that will be matched against found secrets
 
 # AWS Test Keys
 AKIAUM4G6O6NC64ZQ4IO

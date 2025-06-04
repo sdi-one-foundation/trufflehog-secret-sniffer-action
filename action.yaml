@@ -55,28 +55,45 @@ runs:
         # Post-process to apply allowlist filtering
         if [ -f ".trufflehog-allowlist.txt" ]; then
           echo "Filtering results using repository's allowlist file..."
-          # Initialize empty output file
+          # Create a new file for filtered output
           > trufflehog_raw_output.txt
 
-          # Filter out findings that match patterns in the allowlist
+          # Create an array of allowlist patterns (excluding comments and empty lines)
+          ALLOWLIST_PATTERNS=()
+          while IFS= read -r pattern || [ -n "$pattern" ]; do
+            # Skip comments and empty lines
+            if [[ ! "$pattern" =~ ^[[:space:]]*# && -n "$pattern" ]]; then
+              ALLOWLIST_PATTERNS+=("$pattern")
+            fi
+          done < .trufflehog-allowlist.txt
+
+          # Process each line of TruffleHog output
           cat trufflehog_raw_unfiltered.txt | while read -r line; do
             if [[ "$line" == *"level"* || "$line" == *"finished scanning"* ]]; then
               # Always keep metadata lines
               echo "$line" >> trufflehog_raw_output.txt
             else
-              # For actual findings, check against allowlist patterns
+              # For findings, extract the raw/redacted value and check against allowlist
               EXCLUDE=false
-              while IFS= read -r pattern || [ -n "$pattern" ]; do
-                # Skip comments and empty lines
-                if [[ ! "$pattern" =~ ^[[:space:]]*# && -n "$pattern" ]]; then
-                  if echo "$line" | grep -q "$pattern"; then
-                    EXCLUDE=true
-                    echo "Excluding finding matching pattern: $pattern"
-                    break
-                  fi
-                fi
-              done < .trufflehog-allowlist.txt
 
+              # Extract the secret values that might match our patterns
+              RAW_VALUE=$(echo "$line" | jq -r '.Raw // ""')
+              REDACTED_VALUE=$(echo "$line" | jq -r '.Redacted // ""')
+              DESCRIPTION=$(echo "$line" | jq -r '.DetectorDescription // ""')
+
+              # Debug output (remove in production)
+              echo "Checking finding: Raw=$RAW_VALUE, Redacted=$REDACTED_VALUE"
+
+              # Check if any allowlist pattern matches the raw or redacted value
+              for pattern in "${ALLOWLIST_PATTERNS[@]}"; do
+                if [[ "$RAW_VALUE" == *"$pattern"* || "$REDACTED_VALUE" == *"$pattern"* ]]; then
+                  EXCLUDE=true
+                  echo "Excluding finding matching pattern: $pattern"
+                  break
+                fi
+              done
+
+              # If not excluded, keep the finding
               if [ "$EXCLUDE" = false ]; then
                 echo "$line" >> trufflehog_raw_output.txt
               fi
