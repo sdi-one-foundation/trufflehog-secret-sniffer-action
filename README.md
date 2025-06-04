@@ -88,6 +88,20 @@ TruffleHog has detected secrets in this pull request. Please review and remove a
 **Important:** Committing secrets to a repository poses significant security risks. Please remove these secrets and consider them compromised.
 ```
 
+## Excluding False Positives
+
+The action includes a built-in allowlist to ignore common false positives, such as:
+
+- Development database URLs (localhost connections)
+- Test credentials and dummy passwords
+- Common development patterns that aren't actual secrets
+
+The file works just like a .gitignore file.  Every line is a regular expression pattern that will be evaluated.  Findings will be skipped if they match
+
+### Custom Allowlist
+
+You can override the built-in allowlist by creating a `.trufflehog-allowlist.txt` file in your repository root. This file should contain one regular expression pattern per line:
+
 ## Troubleshooting
 
 If you encounter issues with this action:
