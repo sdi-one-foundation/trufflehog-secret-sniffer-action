@@ -28,21 +28,13 @@ runs:
         ref: ${{env.branch}}
         fetch-depth: ${{ env.SCAN_TYPE == 'full' && '0' || '100' }}
 
-    # Use the official TruffleHog action with conditional args
-    - uses: trufflesecurity/trufflehog@main
+    # Replace the official TruffleHog action with direct Docker scan
+    - name: Scan for secrets
       id: trufflehog
-      with:
-        extra_args: --results=verified,unknown
-      continue-on-error: true
-
-    - name: Capture TruffleHog output
       shell: bash
       run: |
-        # The TruffleHog action may have found secrets in deleted files
-        # We'll re-run the scan and only alert if secrets exist in current files
-
-        # Run TruffleHog again to get detailed output for current files only
-        echo "Running TruffleHog to get detailed output..."
+        # Run TruffleHog to scan for secrets
+        echo "Running TruffleHog to scan for secrets..."
         if [ "${{ env.SCAN_TYPE }}" == "changes" ]; then
           # For PRs, only scan the current state of files that have changed
           git diff --name-only ${{ env.BASE_SHA }} ${{ env.HEAD_SHA }} | xargs -I{} sh -c '[ -f "{}" ] && echo {}' > pr_changed_files.txt
@@ -55,8 +47,8 @@ runs:
             touch trufflehog_raw_output.txt
           fi
         else
-          # For full scans (pushes), scan the entire repo but only current files
-          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json /pwd > trufflehog_raw_output.txt || true
+          # For full scans (pushes), scan the entire repo history
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --only-verified --json > trufflehog_raw_output.txt || true
         fi
 
         # Only set the flag if we found secrets in files that still exist
@@ -340,7 +332,7 @@ runs:
         nodemailerlog: true
         nodemailerdebug: true
 
-    - name: Scan Results Status
-      if: steps.trufflehog.outcome == 'failure'
+    - name: Scan Results Status - Exit with error if secrets found
+      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
       run: exit 1
       shell: bash
