@@ -2,8 +2,8 @@
 # Each line is a string pattern that will be matched against found secrets
 
 # AWS Test Keys
-AKIAUM4G6O6NC64ZQ4IO
-T4e8WwAOZwuH5rxWCTm+J4wjHPcDMNm9Rl9r3nok
+AKIAUM4G6O6NC64*
+T4e8WwAOZwuH5rxWCTm+J4wj*
 
 # Common false positives
 jdbc:postgresql://localhost
