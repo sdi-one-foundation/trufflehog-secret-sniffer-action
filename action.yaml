@@ -91,8 +91,10 @@ runs:
           if [[ ! "$pattern" =~ ^[[:space:]]*# && -n "$pattern" ]]; then
             # Trim whitespace
             pattern=$(echo "$pattern" | xargs)
+            # Convert * wildcards to .* for regex
+            pattern=$(echo "$pattern" | sed 's/\*/\.\*/g')
             ALLOWLIST_PATTERNS+=("$pattern")
-            echo "Added pattern to allowlist: [$pattern]"
+            echo "Added pattern to allowlist (regex format): [$pattern]"
           fi
         done < "$ALLOWLIST_FILE"
 
@@ -108,24 +110,24 @@ runs:
             # Extract the secret values that might match our patterns
             RAW_VALUE=$(echo "$line" | jq -r '.Raw // ""')
             REDACTED_VALUE=$(echo "$line" | jq -r '.Redacted // ""')
-            FULL_JSON=$(echo "$line" | jq -c '.')
+            RAW_V2=$(echo "$line" | jq -r '.RawV2 // ""')
 
-            echo "Checking finding: Raw=[${RAW_VALUE}], Redacted=[${REDACTED_VALUE}]"
+            echo "Checking finding: Raw=[$RAW_VALUE], Redacted=[$REDACTED_VALUE], RawV2=[$RAW_V2]"
 
-            # Check against all patterns
+            # Check against all patterns using regex matching
             for pattern in "${ALLOWLIST_PATTERNS[@]}"; do
-              echo "  Testing pattern: [${pattern}]"
-              if [[ -n "$RAW_VALUE" && "$RAW_VALUE" == *"$pattern"* ]]; then
+              echo "  Testing pattern: [$pattern]"
+              if [[ -n "$RAW_VALUE" && "$RAW_VALUE" =~ $pattern ]]; then
                 EXCLUDE=true
                 echo "  ✓ MATCH FOUND in Raw value! Pattern: [$pattern]"
                 break
-              elif [[ -n "$REDACTED_VALUE" && "$REDACTED_VALUE" == *"$pattern"* ]]; then
+              elif [[ -n "$REDACTED_VALUE" && "$REDACTED_VALUE" =~ $pattern ]]; then
                 EXCLUDE=true
                 echo "  ✓ MATCH FOUND in Redacted value! Pattern: [$pattern]"
                 break
-              elif [[ -n "$FULL_JSON" && "$FULL_JSON" == *"$pattern"* ]]; then
+              elif [[ -n "$RAW_V2" && "$RAW_V2" =~ $pattern ]]; then
                 EXCLUDE=true
-                echo "  ✓ MATCH FOUND in full JSON! Pattern: [$pattern]"
+                echo "  ✓ MATCH FOUND in RawV2 value! Pattern: [$pattern]"
                 break
               fi
             done

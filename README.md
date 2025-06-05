@@ -102,10 +102,26 @@ The file works just like a .gitignore file.  Every line is a regular expression 
 
 You can override the built-in allowlist by creating a `.trufflehog-allowlist.txt` file in your repository root. This file should contain one regular expression pattern per line:
 
-## Troubleshooting
+## Allowlist Pattern Format
 
-If you encounter issues with this action:
+Each line in the `.trufflehog-allowlist.txt` file is treated as a pattern:
 
-1. **No Email Received**: Verify your SES credentials and ensure the email address is verified in AWS SES
-2. **Action Fails**: Check the GitHub Actions logs for detailed error messages
-3. **False Positives**: TruffleHog may occasionally flag non-secret values; review findings carefully
+- **Simple strings**: `example-password` matches exactly that string
+- **Wildcards**: `AKIA*` matches any string starting with "AKIA"
+- **Partial matching**: `database_password` will match `my_database_password_123`
+
+Example patterns:
+
+```
+# Default TruffleHog Allowlist for common false positives
+# Each line is a string pattern that will be matched against found secrets
+
+#AWS Keys
+AKIA*
+
+# Database connection strings
+jdbc:*://localhost
+
+# Test credentials
+test_*
+```
