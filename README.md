@@ -88,10 +88,40 @@ TruffleHog has detected secrets in this pull request. Please review and remove a
 **Important:** Committing secrets to a repository poses significant security risks. Please remove these secrets and consider them compromised.
 ```
 
-## Troubleshooting
+## Excluding False Positives
 
-If you encounter issues with this action:
+The action includes a built-in allowlist to ignore common false positives, such as:
 
-1. **No Email Received**: Verify your SES credentials and ensure the email address is verified in AWS SES
-2. **Action Fails**: Check the GitHub Actions logs for detailed error messages
-3. **False Positives**: TruffleHog may occasionally flag non-secret values; review findings carefully
+- Development database URLs (localhost connections)
+- Test credentials and dummy passwords
+- Common development patterns that aren't actual secrets
+
+The file works just like a .gitignore file.  Every line is a regular expression pattern that will be evaluated.  Findings will be skipped if they match
+
+### Custom Allowlist
+
+You can override the built-in allowlist by creating a `.trufflehog-allowlist.txt` file in your repository root. This file should contain one regular expression pattern per line:
+
+## Allowlist Pattern Format
+
+Each line in the `.trufflehog-allowlist.txt` file is treated as a pattern:
+
+- **Simple strings**: `example-password` matches exactly that string
+- **Wildcards**: `AKIA*` matches any string starting with "AKIA"
+- **Partial matching**: `database_password` will match `my_database_password_123`
+
+Example patterns:
+
+```
+# Default TruffleHog Allowlist for common false positives
+# Each line is a string pattern that will be matched against found secrets
+
+#AWS Keys
+AKIA*
+
+# Database connection strings
+jdbc:*://localhost
+
+# Test credentials
+test_*
+```
