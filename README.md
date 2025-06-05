@@ -2,6 +2,19 @@
 
 A GitHub Action that uses TruffleHog to scan your repository for secrets and sensitive information. If secrets are found, it will fail the action, post annotations on the code, comment on pull requests, and notify the team via email.
 
+## Table of Contents
+- [TruffleHog Secret Sniffer Action](#trufflehog-secret-sniffer-action)
+  - [Table of Contents](#table-of-contents)
+  - [Features](#features)
+  - [Setup](#setup)
+  - [Configuration](#configuration)
+    - [Inputs](#inputs)
+  - [Example Email Notification](#example-email-notification)
+  - [Example PR Comment](#example-pr-comment)
+  - [Excluding False Positives](#excluding-false-positives)
+    - [Custom Allowlist](#custom-allowlist)
+  - [Allowlist Pattern Format](#allowlist-pattern-format)
+
 ## Features
 
 - **Smart Scanning**:
