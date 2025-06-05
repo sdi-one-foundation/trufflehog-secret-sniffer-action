@@ -28,6 +28,10 @@ runs:
         ref: ${{env.branch}}
         fetch-depth: ${{ env.SCAN_TYPE == 'full' && '0' || '100' }}
 
+    - name: Create Truuflehog Allow List File
+      shell: bash
+      run: cat ${{ github.action_path }}/.trufflehog-allowlist.txt >> .trufflehog-allowlist.txt
+
     # Replace the official TruffleHog action with direct Docker scan
     - name: Scan for secrets
       id: trufflehog
@@ -53,73 +57,90 @@ runs:
         fi
 
         # Post-process to apply allowlist filtering
+        echo "Looking for allowlist file..."
         if [ -f ".trufflehog-allowlist.txt" ]; then
-          echo "Filtering results using repository's allowlist file..."
-          # Create a new file for filtered output
-          > trufflehog_raw_output.txt
-
-          # Create an array of allowlist patterns (excluding comments and empty lines)
-          ALLOWLIST_PATTERNS=()
-          while IFS= read -r pattern || [ -n "$pattern" ]; do
-            # Skip comments and empty lines
-            if [[ ! "$pattern" =~ ^[[:space:]]*# && -n "$pattern" ]]; then
-              # Trim whitespace
-              pattern=$(echo "$pattern" | xargs)
-              ALLOWLIST_PATTERNS+=("$pattern")
-              echo "Added pattern to allowlist: [$pattern]"
-            fi
-          done < .trufflehog-allowlist.txt
-
-          # Process each line of TruffleHog output
-          while IFS= read -r line || [ -n "$line" ]; do
-            if [[ "$line" == *"level"* || "$line" == *"finished scanning"* ]]; then
-              # Always keep metadata lines
-              echo "$line" >> trufflehog_raw_output.txt
-            else
-              # For findings, extract the raw/redacted value and check against allowlist
-              EXCLUDE=false
-
-              # Extract the secret values that might match our patterns
-              RAW_VALUE=$(echo "$line" | jq -r '.Raw // ""')
-              REDACTED_VALUE=$(echo "$line" | jq -r '.Redacted // ""')
-              FULL_JSON=$(echo "$line" | jq -c '.')
-
-              echo "Checking finding: Raw=[${RAW_VALUE}], Redacted=[${REDACTED_VALUE}]"
-
-              # Check against all patterns
-              for pattern in "${ALLOWLIST_PATTERNS[@]}"; do
-                echo "  Testing pattern: [${pattern}]"
-                if [[ -n "$RAW_VALUE" && "$RAW_VALUE" == *"$pattern"* ]]; then
-                  EXCLUDE=true
-                  echo "  ✓ MATCH FOUND in Raw value! Pattern: [$pattern]"
-                  break
-                elif [[ -n "$REDACTED_VALUE" && "$REDACTED_VALUE" == *"$pattern"* ]]; then
-                  EXCLUDE=true
-                  echo "  ✓ MATCH FOUND in Redacted value! Pattern: [$pattern]"
-                  break
-                elif [[ -n "$FULL_JSON" && "$FULL_JSON" == *"$pattern"* ]]; then
-                  EXCLUDE=true
-                  echo "  ✓ MATCH FOUND in full JSON! Pattern: [$pattern]"
-                  break
-                fi
-              done
-
-              # If not excluded, keep the finding
-              if [ "$EXCLUDE" = false ]; then
-                echo "$line" >> trufflehog_raw_output.txt
-                echo "  ⚠️ NO MATCH FOUND - keeping finding"
-              else
-                echo "  ✓ Finding excluded due to allowlist match"
-              fi
-            fi
-          done < trufflehog_raw_unfiltered.txt
-
-          echo "Filtering complete. Before: $(grep -v "level\|finished scanning" trufflehog_raw_unfiltered.txt | wc -l) findings, After: $(grep -v "level\|finished scanning" trufflehog_raw_output.txt | wc -l) findings"
+          echo "Found allowlist file at .trufflehog-allowlist.txt"
+          ALLOWLIST_FILE=".trufflehog-allowlist.txt"
+        elif [ -f ".github/.trufflehog-allowlist.txt" ]; then
+          echo "Found allowlist file at .github/.trufflehog-allowlist.txt"
+          ALLOWLIST_FILE=".github/.trufflehog-allowlist.txt"
+        elif [ -f "$GITHUB_ACTION_PATH/.trufflehog-allowlist.txt" ]; then
+          echo "Using built-in allowlist from action"
+          ALLOWLIST_FILE="$GITHUB_ACTION_PATH/.trufflehog-allowlist.txt"
         else
-          echo "No allowlist file found, using unfiltered results"
+          echo "No allowlist file found. To exclude false positives, create a .trufflehog-allowlist.txt file in your repository."
+          echo "Using unfiltered results"
           cp trufflehog_raw_unfiltered.txt trufflehog_raw_output.txt
+          # Continue with the rest of the script
+          # ...
+          return 0
         fi
 
+        # Only proceed with filtering if we found an allowlist file
+        echo "Filtering results using allowlist file: $ALLOWLIST_FILE"
+        echo "Contents of allowlist file ($ALLOWLIST_FILE):"
+        cat "$ALLOWLIST_FILE"
+
+        # Create a new file for filtered output
+        > trufflehog_raw_output.txt
+
+        # Create an array of allowlist patterns (excluding comments and empty lines)
+        ALLOWLIST_PATTERNS=()
+        while IFS= read -r pattern || [ -n "$pattern" ]; do
+          # Skip comments and empty lines
+          if [[ ! "$pattern" =~ ^[[:space:]]*# && -n "$pattern" ]]; then
+            # Trim whitespace
+            pattern=$(echo "$pattern" | xargs)
+            ALLOWLIST_PATTERNS+=("$pattern")
+            echo "Added pattern to allowlist: [$pattern]"
+          fi
+        done < "$ALLOWLIST_FILE"
+
+        # Process each line of TruffleHog output
+        while IFS= read -r line || [ -n "$line" ]; do
+          if [[ "$line" == *"level"* || "$line" == *"finished scanning"* ]]; then
+            # Always keep metadata lines
+            echo "$line" >> trufflehog_raw_output.txt
+          else
+            # For findings, extract the raw/redacted value and check against allowlist
+            EXCLUDE=false
+
+            # Extract the secret values that might match our patterns
+            RAW_VALUE=$(echo "$line" | jq -r '.Raw // ""')
+            REDACTED_VALUE=$(echo "$line" | jq -r '.Redacted // ""')
+            FULL_JSON=$(echo "$line" | jq -c '.')
+
+            echo "Checking finding: Raw=[${RAW_VALUE}], Redacted=[${REDACTED_VALUE}]"
+
+            # Check against all patterns
+            for pattern in "${ALLOWLIST_PATTERNS[@]}"; do
+              echo "  Testing pattern: [${pattern}]"
+              if [[ -n "$RAW_VALUE" && "$RAW_VALUE" == *"$pattern"* ]]; then
+                EXCLUDE=true
+                echo "  ✓ MATCH FOUND in Raw value! Pattern: [$pattern]"
+                break
+              elif [[ -n "$REDACTED_VALUE" && "$REDACTED_VALUE" == *"$pattern"* ]]; then
+                EXCLUDE=true
+                echo "  ✓ MATCH FOUND in Redacted value! Pattern: [$pattern]"
+                break
+              elif [[ -n "$FULL_JSON" && "$FULL_JSON" == *"$pattern"* ]]; then
+                EXCLUDE=true
+                echo "  ✓ MATCH FOUND in full JSON! Pattern: [$pattern]"
+                break
+              fi
+            done
+
+            # If not excluded, keep the finding
+            if [ "$EXCLUDE" = false ]; then
+              echo "$line" >> trufflehog_raw_output.txt
+              echo "  ⚠️ NO MATCH FOUND - keeping finding"
+            else
+              echo "  ✓ Finding excluded due to allowlist match"
+            fi
+          fi
+        done < trufflehog_raw_unfiltered.txt
+
+        echo "Filtering complete. Before: $(grep -v "level\|finished scanning" trufflehog_raw_unfiltered.txt | wc -l) findings, After: $(grep -v "level\|finished scanning" trufflehog_raw_output.txt | wc -l) findings"
         # Only set the flag if we found secrets
         if [ -s trufflehog_raw_output.txt ]; then
           # Count actual findings (not metadata lines)
