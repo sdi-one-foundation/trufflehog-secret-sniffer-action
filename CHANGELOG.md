@@ -2,23 +2,6 @@
 
 ## [v1.6.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.0) - 2025-06-05 15:29:08
 
-## What's Changed
-* feat: Add allow list by @gallowaystorm in https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/4
-
-
-**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.6.0
-
-### Feature
-
-- general:
-  - Add allow list (#4) ([46062ab](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/46062ab67a06fa2a63cd56f149e022d43b1d94c1)) ([#4](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/4))
-
-### Miscellaneous
-
-
-- bot:
-  - update files for Release v1.5.0. ([5c0b8b1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/5c0b8b1f80cf8b5b59b77a88484f31bc89459ad5))
-
 ## [v1.5.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.5.0) - 2025-06-04 14:41:43
 
 **Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.5.0
