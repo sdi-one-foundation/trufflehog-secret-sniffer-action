@@ -63,7 +63,10 @@ runs:
           while IFS= read -r pattern || [ -n "$pattern" ]; do
             # Skip comments and empty lines
             if [[ ! "$pattern" =~ ^[[:space:]]*# && -n "$pattern" ]]; then
+              # Trim whitespace
+              pattern=$(echo "$pattern" | xargs)
               ALLOWLIST_PATTERNS+=("$pattern")
+              echo "Added pattern to allowlist: [$pattern]"
             fi
           done < .trufflehog-allowlist.txt
 
@@ -83,20 +86,20 @@ runs:
 
               echo "Checking finding: Raw=[${RAW_VALUE}], Redacted=[${REDACTED_VALUE}]"
 
-              # Check if any allowlist pattern matches the raw or redacted value
+              # Check against all patterns
               for pattern in "${ALLOWLIST_PATTERNS[@]}"; do
                 echo "  Testing pattern: [${pattern}]"
                 if [[ -n "$RAW_VALUE" && "$RAW_VALUE" == *"$pattern"* ]]; then
                   EXCLUDE=true
-                  echo "  ✓ MATCH FOUND in Raw value!"
+                  echo "  ✓ MATCH FOUND in Raw value! Pattern: [$pattern]"
                   break
                 elif [[ -n "$REDACTED_VALUE" && "$REDACTED_VALUE" == *"$pattern"* ]]; then
                   EXCLUDE=true
-                  echo "  ✓ MATCH FOUND in Redacted value!"
+                  echo "  ✓ MATCH FOUND in Redacted value! Pattern: [$pattern]"
                   break
                 elif [[ -n "$FULL_JSON" && "$FULL_JSON" == *"$pattern"* ]]; then
                   EXCLUDE=true
-                  echo "  ✓ MATCH FOUND in full JSON!"
+                  echo "  ✓ MATCH FOUND in full JSON! Pattern: [$pattern]"
                   break
                 fi
               done
