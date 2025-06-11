@@ -60,6 +60,9 @@ jobs:
     steps:
       - name: Secret Scanning Action
         uses: sdi-one-foundation/trufflehog-secret-sniffer-action@v1
+        with:
+            ses-username: ${{secrets.FOUNDATION_SES_USERNAME}}
+            ses-password: ${{secrets.FOUNDATION_SES_PASSWORD}}
 ```
 
 ## Configuration
