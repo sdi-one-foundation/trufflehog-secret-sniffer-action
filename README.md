@@ -40,7 +40,7 @@ A GitHub Action that uses TruffleHog to scan your repository for secrets and sen
 name: Secret Sniffer - TruffleHog
 description: |
   This workflow runs TruffleHog to detect secrets in the repository.
-  It is triggered on every push to the main branch.
+  It is triggered on every push to the main branch and every pull request.
 
 on:
   push:
