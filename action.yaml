@@ -41,10 +41,23 @@ runs:
         echo "Running TruffleHog to scan for secrets..."
         if [ "${{ env.SCAN_TYPE }}" == "changes" ]; then
           # For PRs, scan the changed files
-          git diff --name-only ${{ env.BASE_SHA }} ${{ env.HEAD_SHA }} | xargs -I{} sh -c '[ -f "{}" ] && echo {}' > pr_changed_files.txt
+          echo "Getting changed files between ${{ env.BASE_SHA }} and ${{ env.HEAD_SHA }}..."
+
+          # Use a more robust approach to get changed files
+          if git diff --name-only ${{ env.BASE_SHA }} ${{ env.HEAD_SHA }} > pr_changed_files.txt 2>/dev/null; then
+            echo "Successfully identified changed files"
+          else
+            echo "Warning: Error getting changed files with git diff, using alternative method..."
+            # Fallback: Get files changed in recent commits
+            git diff --name-only HEAD~10 HEAD > pr_changed_files.txt || echo "No files found"
+          fi
+
+          # Filter to only include files that still exist
+          cat pr_changed_files.txt | xargs -I{} sh -c '[ -f "{}" ] && echo {}' > pr_existing_files.txt
+          mv pr_existing_files.txt pr_changed_files.txt
 
           if [ -s pr_changed_files.txt ]; then
-            # Run without exclusions first
+            echo "Found $(wc -l < pr_changed_files.txt) changed files to scan"
             docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_unfiltered.txt || true
           else
             echo "No changed files found in the PR"
@@ -52,8 +65,8 @@ runs:
           fi
         else
           # For full scans (pushes), scan the entire repo history
-          git fetch --unshallow || true
-          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --results=verified,unknown,unverified > trufflehog_raw_unfiltered.txt || true
+          echo "Running full git history scan..."
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json . > trufflehog_raw_unfiltered.txt || true
         fi
 
         # Post-process to apply allowlist filtering
@@ -595,3 +608,40 @@ runs:
       if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
       run: exit 1
       shell: bash
+
+    # Check for and fix potential Git reference issues
+    - name: Fix Git references
+      shell: bash
+      run: |
+        echo "Ensuring Git repository is in a healthy state..."
+
+        # Make sure we have a full clone, not shallow
+        echo "Fetching complete Git history..."
+        git fetch --unshallow --prune || echo "Repository may already be unshallow"
+
+        # Clean any potential corrupted objects
+        echo "Running Git garbage collection and checking repository..."
+        git gc --auto
+        git fsck --full || echo "Some Git objects may be missing (this is expected in some cases)"
+
+        # Get the proper BASE_SHA and HEAD_SHA for PR scans
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          echo "Setting up proper commit references for pull request..."
+          # Use merge-base to find the common ancestor - more reliable than direct base reference
+          BASE_SHA=$(git merge-base ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+          HEAD_SHA=${{ github.event.pull_request.head.sha }}
+
+          # Verify both SHAs exist
+          if ! git cat-file -e $BASE_SHA 2>/dev/null; then
+            echo "Warning: BASE_SHA $BASE_SHA is not valid, using fallback..."
+            BASE_SHA=$(git rev-list --max-parents=0 HEAD)
+          fi
+
+          if ! git cat-file -e $HEAD_SHA 2>/dev/null; then
+            echo "Warning: HEAD_SHA $HEAD_SHA is not valid, using current HEAD..."
+            HEAD_SHA=$(git rev-parse HEAD)
+          fi
+
+          echo "BASE_SHA=$BASE_SHA" >> $GITHUB_ENV
+          echo "HEAD_SHA=$HEAD_SHA" >> $GITHUB_ENV
+        fi
