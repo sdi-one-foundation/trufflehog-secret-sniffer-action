@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## [v1.6.1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.1) - 2025-06-18 17:40:59
+
+## What's Changed
+* fix: fix the fatal bad object error on pull requests by @gallowaystorm in https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/5
+
+
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.6.1
+
+### Feature
+
+- general:
+  - add table of contents to readme ([71ea081](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/71ea081d56188afcb4731ddf8b9c428ad8a15df9))
+
+### Bug Fixes
+
+- general:
+  - fix the fatal bad object error on pull requests (#5) ([9d5a90e](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/9d5a90e33bca97d0d1bde4b8cb8d4a2a3622ce35)) ([#5](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/5))
+
+### Miscellaneous
+
+
+- bot:
+  - update files for Release v1.6.0. ([e0a229b](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/e0a229b6475a0e1cc0266c27463d334d3d55464b))
+  - update files for Release v1.6.0. ([f02ef4a](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/f02ef4ab5a1ca9c2a0b2355075f7da6966ce45c5))
+
 ## [v1.6.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.0) - 2025-06-05 15:29:08
 
 ## [v1.5.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.5.0) - 2025-06-04 14:41:43
