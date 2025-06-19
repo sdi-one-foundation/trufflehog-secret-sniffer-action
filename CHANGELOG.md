@@ -1,29 +1,25 @@
 # CHANGELOG
 
-## [v1.6.1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.1) - 2025-06-18 17:40:59
+## [v1.6.2](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.2) - 2025-06-19 18:11:08
 
 ## What's Changed
-* fix: fix the fatal bad object error on pull requests by @gallowaystorm in https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/5
+* fix: change behavior when commits are reversed in a PR by @gallowaystorm in https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/6
 
 
-**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.6.1
-
-### Feature
-
-- general:
-  - add table of contents to readme ([71ea081](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/71ea081d56188afcb4731ddf8b9c428ad8a15df9))
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.6.2
 
 ### Bug Fixes
 
 - general:
-  - fix the fatal bad object error on pull requests (#5) ([9d5a90e](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/9d5a90e33bca97d0d1bde4b8cb8d4a2a3622ce35)) ([#5](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/5))
+  - change behavior when commits are reversed in a PR (#6) ([8efed3d](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/8efed3d19c6d0a0c9b3b27fb4accd639de90f337)) ([#6](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/6))
 
 ### Miscellaneous
 
 
 - bot:
-  - update files for Release v1.6.0. ([e0a229b](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/e0a229b6475a0e1cc0266c27463d334d3d55464b))
-  - update files for Release v1.6.0. ([f02ef4a](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/f02ef4ab5a1ca9c2a0b2355075f7da6966ce45c5))
+  - update files for Release v1.6.1. ([04f55a8](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/04f55a88f62ad6e776ef8e6108ad3af72d32ba81))
+
+## [v1.6.1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.1) - 2025-06-18 17:40:59
 
 ## [v1.6.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.0) - 2025-06-05 15:29:08
 
