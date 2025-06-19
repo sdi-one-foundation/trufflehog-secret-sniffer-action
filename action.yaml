@@ -46,6 +46,9 @@ runs:
           # Use a more robust approach to get changed files
           if git diff --name-only ${{ env.BASE_SHA }} ${{ env.HEAD_SHA }} > pr_changed_files.txt 2>/dev/null; then
             echo "Successfully identified changed files"
+            # Count changed files
+            CHANGED_FILES_COUNT=$(wc -l < pr_changed_files.txt)
+            echo "Number of changed files: $CHANGED_FILES_COUNT"
           else
             echo "Warning: Error getting changed files with git diff, using alternative method..."
             # Fallback: Get files changed in recent commits
@@ -56,12 +59,19 @@ runs:
           cat pr_changed_files.txt | xargs -I{} sh -c '[ -f "{}" ] && echo {}' > pr_existing_files.txt
           mv pr_existing_files.txt pr_changed_files.txt
 
+          # Check if any files remain after filtering
+          EXISTING_FILES_COUNT=$(wc -l < pr_changed_files.txt)
+          echo "Number of existing changed files: $EXISTING_FILES_COUNT"
+
           if [ -s pr_changed_files.txt ]; then
-            echo "Found $(wc -l < pr_changed_files.txt) changed files to scan"
+            echo "Found $EXISTING_FILES_COUNT changed files to scan"
             docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_unfiltered.txt || true
           else
-            echo "No changed files found in the PR"
+            echo "No existing changed files found to scan - this is normal for PRs that only delete files or revert changes"
+            echo "Creating empty output file"
             touch trufflehog_raw_unfiltered.txt
+            # Ensure the action doesn't fail
+            echo "TRUFFLEHOG_FOUND_SECRETS=false" >> $GITHUB_ENV
           fi
         else
           # For full scans (pushes), scan the entire repo history
