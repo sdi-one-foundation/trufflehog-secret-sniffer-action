@@ -55,17 +55,55 @@ runs:
             git diff --name-only HEAD~10 HEAD > pr_changed_files.txt || echo "No files found"
           fi
 
-          # Filter to only include files that still exist
-          cat pr_changed_files.txt | xargs -I{} sh -c '[ -f "{}" ] && echo {}' > pr_existing_files.txt
+          # Filter to only include files that still exist and handle special characters
+          echo "Filtering to only include existing files..."
+          > pr_existing_files.txt
+          while IFS= read -r file; do
+            if [ -f "$file" ]; then
+              echo "$file" >> pr_existing_files.txt
+            else
+              echo "Skipping non-existent file: $file"
+            fi
+          done < pr_changed_files.txt
           mv pr_existing_files.txt pr_changed_files.txt
 
           # Check if any files remain after filtering
           EXISTING_FILES_COUNT=$(wc -l < pr_changed_files.txt)
           echo "Number of existing changed files: $EXISTING_FILES_COUNT"
 
-          if [ -s pr_changed_files.txt ]; then
+          if [ "$EXISTING_FILES_COUNT" -gt 0 ]; then
             echo "Found $EXISTING_FILES_COUNT changed files to scan"
-            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json $(cat pr_changed_files.txt) > trufflehog_raw_unfiltered.txt || true
+
+            # Handle each file individually to prevent issues with special characters
+            echo "Preparing safe file list for TruffleHog..."
+            > safe_file_list.txt
+            while IFS= read -r file; do
+              # Escape special characters and quotes
+              escaped_file=$(printf "%q" "$file")
+              echo "$escaped_file" >> safe_file_list.txt
+            done < pr_changed_files.txt
+
+            # Scan files one by one to prevent failures affecting the entire scan
+            echo "Scanning files individually..."
+            > trufflehog_raw_unfiltered.txt
+            FOUND_SECRETS=false
+
+            while IFS= read -r file; do
+              echo "Scanning file: $file"
+              if docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json "/pwd/$file" >> trufflehog_raw_unfiltered.txt 2>/dev/null; then
+                echo "  Scan completed successfully"
+              else
+                echo "  Warning: Scanning this file returned a non-zero exit code, continuing with next file"
+              fi
+
+              # Check if this file had any secrets
+              if grep -q "DetectorName" trufflehog_raw_unfiltered.txt; then
+                FOUND_SECRETS=true
+              fi
+            done < pr_changed_files.txt
+
+            # Set the environment variable based on whether we found secrets
+            echo "TRUFFLEHOG_FOUND_SECRETS=$FOUND_SECRETS" >> $GITHUB_ENV
           else
             echo "No existing changed files found to scan - this is normal for PRs that only delete files or revert changes"
             echo "Creating empty output file"
