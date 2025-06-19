@@ -1,23 +1,21 @@
 # CHANGELOG
 
-## [v1.6.2](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.2) - 2025-06-19 18:11:08
+## [v1.6.3](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.3) - 2025-06-19 18:14:45
 
-## What's Changed
-* fix: change behavior when commits are reversed in a PR by @gallowaystorm in https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/6
-
-
-**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.6.2
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.6.3
 
 ### Bug Fixes
 
 - general:
-  - change behavior when commits are reversed in a PR (#6) ([8efed3d](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/8efed3d19c6d0a0c9b3b27fb4accd639de90f337)) ([#6](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/6))
+  - change error handling for reversed commits ([e42b2c8](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/e42b2c8c327c8ec9a59bf09aa56743b5fe0759bb))
 
 ### Miscellaneous
 
 
 - bot:
-  - update files for Release v1.6.1. ([04f55a8](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/04f55a88f62ad6e776ef8e6108ad3af72d32ba81))
+  - update files for Release v1.6.2. ([eae1011](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/eae10116e917e6601df84bb7d475200713b7776d))
+
+## [v1.6.2](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.2) - 2025-06-19 18:11:08
 
 ## [v1.6.1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.1) - 2025-06-18 17:40:59
 
