@@ -114,7 +114,7 @@ runs:
         else
           # For full scans (pushes), scan the entire repo history
           echo "Running full git history scan..."
-          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json . > trufflehog_raw_unfiltered.txt || true
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --no-update > trufflehog_raw_unfiltered.txt || true
         fi
 
         # Post-process to apply allowlist filtering
