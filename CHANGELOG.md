@@ -1,12 +1,8 @@
 # CHANGELOG
 
-## [v1.6.4](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.4) - 2025-07-02 19:16:35
+## [v1.6.5](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.5) - 2025-07-02 19:30:56
 
-## What's Changed
-* fix: add common base64 key headers to parameters by @gallowaystorm in https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/7
-
-
-**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.6.4
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.6.5
 
 ### Bug Fixes
 
@@ -17,6 +13,7 @@
 
 
 - bot:
+  - update files for Release v1.6.4. ([7df7916](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/7df7916cfac0b80c67008b5e5638f6312d17203d))
   - update files for Release v1.6.3. ([45567c8](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/45567c86207890884d2de9130c28968afe42a9f1))
 
 ## [v1.6.3](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.3) - 2025-06-19 18:14:45
