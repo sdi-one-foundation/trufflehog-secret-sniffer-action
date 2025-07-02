@@ -55,7 +55,7 @@ runs:
             git diff --name-only HEAD~10 HEAD > pr_changed_files.txt || echo "No files found"
           fi
 
-          # Add to scan command parameters common key headers in base64
+          # Add to scan command parameters
           --include-patterns "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ" \
           --include-patterns "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t" \
           --include-patterns "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=" \
@@ -122,7 +122,7 @@ runs:
         else
           # For full scans (pushes), scan the entire repo history
           echo "Running full git history scan..."
-          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json . > trufflehog_raw_unfiltered.txt || true
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd --json --no-update > trufflehog_raw_unfiltered.txt || true
         fi
 
         # Post-process to apply allowlist filtering
