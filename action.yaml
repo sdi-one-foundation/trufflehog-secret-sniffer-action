@@ -55,6 +55,14 @@ runs:
             git diff --name-only HEAD~10 HEAD > pr_changed_files.txt || echo "No files found"
           fi
 
+          # Add to scan command parameters
+          --include-patterns "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ" \
+          --include-patterns "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t" \
+          --include-patterns "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=" \
+          --include-patterns "LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t" \
+          --include-patterns "LS0tLS1CRUdJTiBQR1AgUFJJVkFURSBLRVkgQkxPQ0stLS0tLQ==" \
+          --include-patterns "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t" \
+          --include-patterns "LS0tLS1CRUdJTiBYNTA5IENSVC0tLS0t" \
           # Filter to only include files that still exist and handle special characters
           echo "Filtering to only include existing files..."
           > pr_existing_files.txt
