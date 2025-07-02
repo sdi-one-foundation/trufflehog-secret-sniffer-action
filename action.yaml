@@ -55,7 +55,7 @@ runs:
             git diff --name-only HEAD~10 HEAD > pr_changed_files.txt || echo "No files found"
           fi
 
-          # Add to scan command parameters
+          # Add to scan command parameters common key headers in base64
           --include-patterns "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ" \
           --include-patterns "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t" \
           --include-patterns "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=" \
