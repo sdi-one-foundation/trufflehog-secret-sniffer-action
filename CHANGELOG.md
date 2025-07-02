@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## [v1.6.6](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.6) - 2025-07-02 19:33:33
+
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.6.6
+
+### Bug Fixes
+
+- general:
+  - remove include-patterns command ([3829c50](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/3829c50bc180e74b77097c400d5dc020e74024c3))
+
+### Miscellaneous
+
+
+- bot:
+  - update files for Release v1.6.5. ([d76b892](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/d76b8926e7184f70cc135f99c5c6b50f45944a11))
+
 ## [v1.6.5](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.5) - 2025-07-02 19:30:56
 
 **Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.6.5
