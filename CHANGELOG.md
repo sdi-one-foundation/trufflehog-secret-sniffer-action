@@ -1,5 +1,24 @@
 # CHANGELOG
 
+## [v1.7.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.7.0) - 2025-07-02 19:35:40
+
+## What's Changed
+* fix: change main push scan to git source by @gallowaystorm in https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/8
+
+
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.7.0
+
+### Bug Fixes
+
+- general:
+  - change main push scan to git source (#8) ([14d8f9d](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/14d8f9d9eb1b6c034d88d4d5656baaba3e15876c)) ([#8](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/8))
+
+### Miscellaneous
+
+
+- bot:
+  - update files for Release v1.6.6. ([a12a76f](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/a12a76ffc88ed0a140e749ed64b1ba99f119c1e2))
+
 ## [v1.6.6](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.6.6) - 2025-07-02 19:33:33
 
 **Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.6.6
