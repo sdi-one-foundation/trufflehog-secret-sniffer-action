@@ -124,12 +124,12 @@ runs:
           echo "Running full git history scan..."
           docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd \
             --results=verified,unknown,unverified \
-            --include-patterns "LS0tLS1CRUdJTiBSU0EgUFJJVkFVEUgS0VZLS0tLS0=" \
-            --include-patterns "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t" \
-            --include-patterns "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=" \
-            --include-patterns "LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t" \
-            --include-patterns "MIIJ" \
-            --include-patterns "MIIEv" \
+            --regex ".*LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ.*" \
+            --regex ".*LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t.*" \
+            --regex ".*LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=.*" \
+            --regex ".*LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t.*" \
+            --regex ".*MIIJ.*" \
+            --regex ".*MIIEv.*" \
             --json --no-update > trufflehog_raw_unfiltered.txt || true
         fi
 
