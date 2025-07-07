@@ -424,7 +424,7 @@ runs:
         fi
 
     - name: Post findings to PR
-      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' && github.event_name == 'pull_request'
+      if: (env.TRUFFLEHOG_FOUND_SECRETS == 'true' || hashFiles('.secrets_found_marker') != '') && github.event_name == 'pull_request'
       uses: actions/github-script@v6
       with:
         github-token: ${{ github.token }}
@@ -480,7 +480,7 @@ runs:
 
     # Add this step right after processing the findings but before the PR comment
     - name: Create GitHub Annotations for findings
-      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
+      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' || hashFiles('.secrets_found_marker') != ''
       shell: bash
       run: |
         # Read the findings and create annotations
@@ -513,7 +513,7 @@ runs:
         fi
 
     - name: Send mail
-      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
+      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' || hashFiles('.secrets_found_marker') != ''
       uses: dawidd6/action-send-mail@v5
       with:
         server_address: email-smtp.us-east-1.amazonaws.com
@@ -862,4 +862,12 @@ runs:
               end
             )' trufflehog_array.json > trufflehog_output.json || true
           fi
+        fi
+
+    - name: Fail if supplementary scan found secrets
+      shell: bash
+      run: |
+        if [ -f ".secrets_found_marker" ] && [ "$(cat .secrets_found_marker)" == "true" ]; then
+          echo "::error::Secrets were found in supplementary scans! Failing the workflow."
+          exit 1
         fi
