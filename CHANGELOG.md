@@ -1,23 +1,35 @@
 # CHANGELOG
 
-## [v1.8.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.8.0) - 2025-07-03 13:52:45
+## [v1.9.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.9.0) - 2025-07-07 18:22:25
 
-## What's Changed
-* fix: Fix scanning for key by @gallowaystorm in https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/9
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.9.0
 
+### Feature
 
-**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.8.0
+- general:
+  - add PR comment if scan is clean ([370d8a0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/370d8a085f04a49ec5f8e55a5478feb569fa273e))
 
 ### Bug Fixes
 
 - general:
-  - Fix scanning for key (#9) ([423e1df](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/423e1df8998e685b0c3c44de13debad54f03cd08)) ([#9](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/9))
+  - revert back to v1.6.3 ([9493657](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/9493657f7cfb75c6677993f40d358e518907612a))
+  - change findings to a file instead of env variable ([1be9151](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/1be915185304eafbf7e30f735c2c0dae2f872f6d))
+  - add logic to email on failed scan ([5ddf619](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/5ddf61984473511e529b91049424c1ab82a3bdb6))
+  - allow notifications on different scans ([ce41b1e](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/ce41b1eda5b7d01eaf8cea26743e7669bced39f3))
+  - add notification step on supplemtary scans ([8a9c8f1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/8a9c8f15168fc34843e9ef88523aa325f00f46c4))
+  - fix the alert environment variable ([c30e5f0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/c30e5f0717e7da7c8372ea59b84ed3512344ff1c))
+  - fix error on main scan ([c04373d](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/c04373db6172cae01858e9ed8c52fa97552590e0))
+  - add filescan to help pickup more obscure secrets ([ef29e23](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/ef29e23d4d98ee89fe1294b390425ab0df387beb))
+  - remove regex patterns ([f33c500](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/f33c500b60b0dbe36f68e54e4d337ddd8e26ac21))
+  - add more depth to main push scans ([b2aab9d](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/b2aab9daf9ffdcaa8e93f61e8f178854a7d31b48))
 
 ### Miscellaneous
 
 
 - bot:
-  - update files for Release v1.7.0. ([601bff4](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/601bff4270385b12f5b0751236ebf735fdafc2b8))
+  - update files for Release v1.8.0. ([b92f701](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/b92f7016a79ec0f4c76ecdf5961f1e321e208c35))
+
+## [v1.8.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.8.0) - 2025-07-03 13:52:45
 
 ## [v1.7.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.7.0) - 2025-07-02 19:35:40
 
