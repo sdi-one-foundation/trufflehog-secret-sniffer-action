@@ -874,58 +874,19 @@ runs:
             echo "</ul>" >> $GITHUB_ENV
             echo "EOF" >> $GITHUB_ENV
 
-            # Export findings for notification
-            FINDINGS_JSON=$(cat trufflehog_output.json)
-            echo "TRUFFLEHOG_FINDINGS<<EOF" >> $GITHUB_ENV
-            echo "$FINDINGS_JSON" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
+            # IMPORTANT: Instead of setting findings in GITHUB_ENV, write to a file
+            # that the email step will read
+            cat trufflehog_output.json > trufflehog_email_findings.json
 
             # Set event type and capture commit details (for push events)
             if [ "${{ github.event_name }}" == "pull_request" ]; then
               echo "EVENT_TYPE=Pull Request" >> $GITHUB_ENV
               echo "EVENT_URL=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
-
-              # Get PR commit details
-              echo "COMMIT_DETAILS<<EOF" >> $GITHUB_ENV
-              echo "<table>" >> $GITHUB_ENV
-              echo "  <tr><td><strong>PR Title:</strong></td><td>${{ github.event.pull_request.title }}</td></tr>" >> $GITHUB_ENV
-              echo "  <tr><td><strong>PR Number:</strong></td><td>#${{ github.event.pull_request.number }}</td></tr>" >> $GITHUB_ENV
-              echo "  <tr><td><strong>Base Commit:</strong></td><td><code>${{ github.event.pull_request.base.sha }}</code></td></tr>" >> $GITHUB_ENV
-              echo "  <tr><td><strong>Head Commit:</strong></td><td><code>${{ github.event.pull_request.head.sha }}</code></td></tr>" >> $GITHUB_ENV
-              echo "  <tr><td><strong>Commits in PR:</strong></td><td>${{ github.event.pull_request.commits }}</td></tr>" >> $GITHUB_ENV
-              echo "  <tr><td><strong>Author:</strong></td><td>${{ github.event.pull_request.user.login }}</td></td></tr>" >> $GITHUB_ENV
-              echo "  <tr><td><strong>Last Updated:</strong></td><td>${{ github.event.pull_request.updated_at }}</td></tr>" >> $GITHUB_ENV
-              echo "</table>" >> $GITHUB_ENV
-              echo "EOF" >> $GITHUB_ENV
-
               # Create a list item for PR (only shown for pull requests)
-              PR_LIST_ITEM='<li><a href="${{ github.event.pull_request.html_url }}">Pull Request #${{ github.event.pull_request.number }}</a></li>'
-
-              echo "PR_LIST_ITEM<<EOF" >> $GITHUB_ENV
-              echo "$PR_LIST_ITEM" >> $GITHUB_ENV
-              echo "EOF" >> $GITHUB_ENV
+              echo "PR_LIST_ITEM=<li><a href=\"${{ github.event.pull_request.html_url }}\">Pull Request #${{ github.event.pull_request.number }}</a></li>" >> $GITHUB_ENV
             else
               echo "EVENT_TYPE=Push to ${{ github.ref_name }} branch" >> $GITHUB_ENV
               echo "EVENT_URL=${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}" >> $GITHUB_ENV
-
-              # Get push commit details
-              echo "COMMIT_DETAILS<<EOF" >> $GITHUB_ENV
-              echo "<table>" >> $GITHUB_ENV
-              echo "  <tr><td><strong>Branch:</strong></td><td>${{ github.ref_name }}</td></tr>" >> $GITHUB_ENV
-              echo "  <tr><td><strong>Commit SHA:</strong></td><td><code>${{ github.sha }}</code></td></tr>" >> $GITHUB_ENV
-
-              # Get the commit message and author
-              COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s")
-              COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
-              COMMIT_EMAIL=$(git log -1 --pretty=format:"%ae")
-              COMMIT_DATE=$(git log -1 --pretty=format:"%ad" --date=format:"%Y-%m-%d %H:%M:%S")
-
-              echo "  <tr><td><strong>Commit Message:</strong></td><td>${COMMIT_MESSAGE}</td></tr>" >> $GITHUB_ENV
-              echo "  <tr><td><strong>Author:</strong></td><td>${COMMIT_AUTHOR} (${COMMIT_EMAIL})</td></tr>" >> $GITHUB_ENV
-              echo "  <tr><td><strong>Commit Date:</strong></td><td>${COMMIT_DATE}</td></tr>" >> $GITHUB_ENV
-              echo "</table>" >> $GITHUB_ENV
-              echo "EOF" >> $GITHUB_ENV
-
               echo "PR_LIST_ITEM=" >> $GITHUB_ENV
             fi
           fi
