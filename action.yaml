@@ -693,3 +693,30 @@ runs:
           echo "BASE_SHA=$BASE_SHA" >> $GITHUB_ENV
           echo "HEAD_SHA=$HEAD_SHA" >> $GITHUB_ENV
         fi
+
+    - name: Post success message to PR
+      if: github.event_name == 'pull_request' && env.TRUFFLEHOG_FOUND_SECRETS != 'true'
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ github.token }}
+        script: |
+          const fs = require('fs');
+
+          const commentBody = `## ✅ Security Scan Passed
+
+          This pull request has been scanned for secrets using TruffleHog, and no sensitive information was detected.
+
+          ### Scan Details
+          - **Repository:** ${{ github.repository }}
+          - **PR Number:** #${{ github.event.pull_request.number }}
+          - **Scan Time:** ${new Date().toISOString()}
+          - **Result:** No secrets detected
+
+          Good job keeping your code secure! 🔒`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });
