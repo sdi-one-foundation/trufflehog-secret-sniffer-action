@@ -93,12 +93,6 @@ runs:
               echo "Scanning file: $file"
               if docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem \
                 --results=verified,unknown,unverified \
-                --include-patterns "LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ" \
-                --include-patterns "LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t" \
-                --include-patterns "LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=" \
-                --include-patterns "LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t" \
-                --include-patterns "MIIJ" \
-                --include-patterns "MIIEv" \
                 --json "/pwd/$file" >> trufflehog_raw_unfiltered.txt 2>/dev/null; then
                 echo "  Scan completed successfully"
               else
@@ -135,12 +129,6 @@ runs:
           echo "Running thorough scan of all Git history..."
           docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd \
             --results=verified,unknown,unverified \
-            --regex ".*LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ.*" \
-            --regex ".*LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t.*" \
-            --regex ".*LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=.*" \
-            --regex ".*LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t.*" \
-            --regex ".*MIIJ.*" \
-            --regex ".*MIIEv.*" \
             --since-commit $(git rev-list --max-parents=0 HEAD) \
             --branch main \
             --branch develop \
@@ -745,12 +733,6 @@ runs:
             # Scan this PR
             docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd \
               --results=verified,unknown,unverified \
-              --regex ".*LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ.*" \
-              --regex ".*LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t.*" \
-              --regex ".*LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=.*" \
-              --regex ".*LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t.*" \
-              --regex ".*MIIJ.*" \
-              --regex ".*MIIEv.*" \
               --max-depth 500 \
               --json --no-update >> trufflehog_raw_unfiltered.txt || true
 
@@ -772,12 +754,6 @@ runs:
         echo "Scanning from earliest commit ($FIRST_COMMIT) to current HEAD ($CURRENT_HEAD)..."
         docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd \
           --results=verified,unknown,unverified \
-          --regex ".*LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ.*" \
-          --regex ".*LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t.*" \
-          --regex ".*LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=.*" \
-          --regex ".*LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t.*" \
-          --regex ".*MIIJ.*" \
-          --regex ".*MIIEv.*" \
           --since-commit $FIRST_COMMIT \
           --max-depth 1000 \
           --json --no-update >> trufflehog_raw_unfiltered.txt || true
