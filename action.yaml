@@ -26,8 +26,7 @@ runs:
     - uses: actions/checkout@v3
       with:
         ref: ${{env.branch}}
-        fetch-depth: 0  # Always use 0 for full scans to get complete history
-        fetch-tags: true  # Also fetch tags to ensure all refs are available
+        fetch-depth: ${{ env.SCAN_TYPE == 'full' && '0' || '100' }}
 
     - name: Create Truuflehog Allow List File
       shell: bash
@@ -91,9 +90,7 @@ runs:
 
             while IFS= read -r file; do
               echo "Scanning file: $file"
-              if docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem \
-                --results=verified,unknown,unverified \
-                --json "/pwd/$file" >> trufflehog_raw_unfiltered.txt 2>/dev/null; then
+              if docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json "/pwd/$file" >> trufflehog_raw_unfiltered.txt 2>/dev/null; then
                 echo "  Scan completed successfully"
               else
                 echo "  Warning: Scanning this file returned a non-zero exit code, continuing with next file"
@@ -116,24 +113,8 @@ runs:
           fi
         else
           # For full scans (pushes), scan the entire repo history
-          echo "Running comprehensive git history scan..."
-
-          # Ensure we have all refs
-          git fetch --unshallow --tags --force origin || echo "Repository may already be unshallow"
-
-          # Identify all branches to scan
-          echo "Identifying all branches and refs..."
-          ALL_BRANCHES=$(git branch -r | grep -v HEAD | sed 's/origin\///')
-
-          # Run TruffleHog on the entire repository with all branches
-          echo "Running thorough scan of all Git history..."
-          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd \
-            --results=verified,unknown,unverified \
-            --since-commit $(git rev-list --max-parents=0 HEAD) \
-            --branch main \
-            --branch develop \
-            --branch $ALL_BRANCHES \
-            --json --no-update > trufflehog_raw_unfiltered.txt || true
+          echo "Running full git history scan..."
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json . > trufflehog_raw_unfiltered.txt || true
         fi
 
         # Post-process to apply allowlist filtering
@@ -387,7 +368,7 @@ runs:
           echo "  <tr><td><strong>Base Commit:</strong></td><td><code>${{ github.event.pull_request.base.sha }}</code></td></tr>" >> $GITHUB_ENV
           echo "  <tr><td><strong>Head Commit:</strong></td><td><code>${{ github.event.pull_request.head.sha }}</code></td></tr>" >> $GITHUB_ENV
           echo "  <tr><td><strong>Commits in PR:</strong></td><td>${{ github.event.pull_request.commits }}</td></tr>" >> $GITHUB_ENV
-          echo "  <tr><td><strong>Author:</strong></td><td>${{ github.event.pull_request.user.login }}</td></td></tr>" >> $GITHUB_ENV
+          echo "  <tr><td><strong>Author:</strong></td><td>${{ github.event.pull_request.user.login }}</td></tr>" >> $GITHUB_ENV
           echo "  <tr><td><strong>Last Updated:</strong></td><td>${{ github.event.pull_request.updated_at }}</td></tr>" >> $GITHUB_ENV
           echo "</table>" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
@@ -424,7 +405,7 @@ runs:
         fi
 
     - name: Post findings to PR
-      if: (env.TRUFFLEHOG_FOUND_SECRETS == 'true' || hashFiles('.secrets_found_marker') != '') && github.event_name == 'pull_request'
+      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' && github.event_name == 'pull_request'
       uses: actions/github-script@v6
       with:
         github-token: ${{ github.token }}
@@ -480,7 +461,7 @@ runs:
 
     # Add this step right after processing the findings but before the PR comment
     - name: Create GitHub Annotations for findings
-      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' || hashFiles('.secrets_found_marker') != ''
+      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
       shell: bash
       run: |
         # Read the findings and create annotations
@@ -513,7 +494,7 @@ runs:
         fi
 
     - name: Send mail
-      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true' || hashFiles('.secrets_found_marker') != ''
+      if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
       uses: dawidd6/action-send-mail@v5
       with:
         server_address: email-smtp.us-east-1.amazonaws.com
@@ -711,213 +692,4 @@ runs:
 
           echo "BASE_SHA=$BASE_SHA" >> $GITHUB_ENV
           echo "HEAD_SHA=$HEAD_SHA" >> $GITHUB_ENV
-        fi
-
-        # After the main scan, also scan PR references
-        echo "Fetching and scanning Pull Request references..."
-        git config --add remote.origin.fetch '+refs/pull/*/head:refs/remotes/origin/pr/*'
-        git fetch --force origin
-
-        # Get list of PR refs
-        PR_REFS=$(git for-each-ref --format='%(refname)' refs/remotes/origin/pr/)
-
-        if [ -n "$PR_REFS" ]; then
-          echo "Found PR references to scan"
-          for pr_ref in $PR_REFS; do
-            PR_NUM=$(echo $pr_ref | sed 's/.*\/pr\///')
-            echo "Scanning PR #$PR_NUM reference..."
-
-            # Get current branch to return to later
-            CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-            # Instead of creating a new local branch, just scan directly from the remote reference
-            echo "Scanning PR reference $pr_ref directly..."
-            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd \
-              --results=verified,unknown,unverified \
-              --branch "remotes/origin/pr/$PR_NUM" \
-              --max-depth 500 \
-              --json --no-update >> trufflehog_raw_unfiltered.txt || true
-
-            echo "Finished scanning PR #$PR_NUM"
-          done
-        else
-          echo "No PR references found to scan"
-        fi
-
-        # Add an additional scan for a broader commit range
-        echo "Performing a supplementary deep scan..."
-
-        # Get the earliest commit
-        FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD)
-        CURRENT_HEAD=$(git rev-parse HEAD)
-
-        echo "Scanning from earliest commit ($FIRST_COMMIT) to current HEAD ($CURRENT_HEAD)..."
-        docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd \
-          --results=verified,unknown,unverified \
-          --since-commit $FIRST_COMMIT \
-          --max-depth 1000 \
-          --json --no-update >> trufflehog_raw_unfiltered.txt || true
-
-        # Add this after the main full scan to also scan the current state of files
-        echo "Adding filesystem scan to ensure consistent detection..."
-        FILES_TO_SCAN=$(find . -type f -not -path "*/\.*" -not -path "*/node_modules/*" -not -path "*/vendor/*")
-
-        for file in $FILES_TO_SCAN; do
-          # Skip binary files and very large files
-          if [ -f "$file" ] && [ "$(stat -c%s "$file")" -lt 1000000 ] && ! file "$file" | grep -q "binary"; then
-            echo "Scanning current file state: $file"
-            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem \
-              --results=verified,unknown,unverified \
-              --json "/pwd/$file" >> trufflehog_raw_unfiltered.txt 2>/dev/null || true
-          fi
-        done
-
-        # Add this at the end of the "Fix Git references" function, after all supplementary scans
-        echo "Checking if supplementary scans found any secrets..."
-        if grep -q "DetectorName" trufflehog_raw_unfiltered.txt; then
-          echo "Secrets found in supplementary scans! Updating environment variable..."
-          echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
-          # Also create a marker file to use within the same step
-          echo "true" > .secrets_found_marker
-        else
-          echo "No secrets found in supplementary scans."
-        fi
-
-    - name: Check supplementary scan results
-      shell: bash
-      run: |
-        if [ -f ".secrets_found_marker" ] && [ "$(cat .secrets_found_marker)" == "true" ]; then
-          echo "Secrets were found in supplementary scans - forcing notification flow"
-          echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
-
-          # Process findings for notification
-          if [ -s trufflehog_raw_unfiltered.txt ]; then
-            echo "Processing detailed TruffleHog output..."
-
-            # Extract the actual findings (non-metadata lines)
-            cat trufflehog_raw_unfiltered.txt | grep -v "^{\"level\"" | grep -v "finished scanning" > trufflehog_findings.txt
-
-            # Continue with your existing notification processing
-            echo "[" > trufflehog_array.json
-            cat trufflehog_findings.txt | tr '\n' ',' | sed 's/,$//' >> trufflehog_array.json
-            echo "]" >> trufflehog_array.json
-
-            # Generate the same output file expected by your notification steps
-            jq 'map(
-              if .SourceMetadata.Data.Git.file != null then
-                {
-                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                  "repository": "${{ github.repository }}",
-                  "source": "TruffleHog GitHub Action",
-                  "file": .SourceMetadata.Data.Git.file,
-                  "line": .SourceMetadata.Data.Git.line,
-                  "detector_type": .DetectorName,
-                  "commit_hash": .SourceMetadata.Data.Git.commit,
-                  "commit_author": .SourceMetadata.Data.Git.email,
-                  "commit_date": .SourceMetadata.Data.Git.timestamp,
-                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                  "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
-                }
-              elif .SourceMetadata.Data.Filesystem.file != null then
-                {
-                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                  "repository": "${{ github.repository }}",
-                  "source": "TruffleHog GitHub Action",
-                  "file": .SourceMetadata.Data.Filesystem.file,
-                  "line": .SourceMetadata.Data.Filesystem.line,
-                  "detector_type": .DetectorName,
-                  "commit_hash": "N/A (filesystem scan)",
-                  "commit_author": "N/A (filesystem scan)",
-                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                  "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
-                }
-              elif .SourceMetadata != null then
-                {
-                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                  "repository": "${{ github.repository }}",
-                  "source": "TruffleHog GitHub Action",
-                  "file": (.SourceMetadata | tostring | .[0:100] + "..."),
-                  "line": "unknown",
-                  "detector_type": .DetectorName,
-                  "commit_hash": (.SourceMetadata.Data.Git.commit // "unknown"),
-                  "commit_author": (.SourceMetadata.Data.Git.email // "unknown"),
-                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                  "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
-                }
-              else
-                {
-                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                  "repository": "${{ github.repository }}",
-                  "source": "TruffleHog GitHub Action",
-                  "file": "unknown",
-                  "line": "unknown",
-                  "detector_type": (.DetectorName // "Unknown"),
-                  "commit_hash": "unknown",
-                  "commit_author": "unknown",
-                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                  "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
-                }
-              end
-            )' trufflehog_array.json > trufflehog_output.json || true
-
-            # Add secret statistics to the environment (missing in supplementary scan path)
-            echo "SECRET_STATS<<EOF" >> $GITHUB_ENV
-            echo "<ul>" >> $GITHUB_ENV
-            jq -r 'group_by(.detector_type) | map({type: .[0].detector_type, count: length}) | .[] | "<li><strong>" + .type + ":</strong> " + (.count|tostring) + "</li>"' trufflehog_output.json >> $GITHUB_ENV
-            echo "</ul>" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-
-            # Add file statistics to the environment (missing in supplementary scan path)
-            echo "FILE_STATS<<EOF" >> $GITHUB_ENV
-            echo "<ul>" >> $GITHUB_ENV
-            jq -r 'group_by(.file) | map({file: .[0].file, count: length}) | .[] | "<li><code>" + .file + "</code>: " + (.count|tostring) + " finding(s)</li>"' trufflehog_output.json >> $GITHUB_ENV
-            echo "</ul>" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-
-            # IMPORTANT: Instead of setting findings in GITHUB_ENV, write to a file
-            # that the email step will read
-            cat trufflehog_output.json > trufflehog_email_findings.json
-
-            # Set event type and capture commit details (for push events)
-            if [ "${{ github.event_name }}" == "pull_request" ]; then
-              echo "EVENT_TYPE=Pull Request" >> $GITHUB_ENV
-              echo "EVENT_URL=${{ github.event.pull_request.html_url }}" >> $GITHUB_ENV
-              # Create a list item for PR (only shown for pull requests)
-              echo "PR_LIST_ITEM=<li><a href=\"${{ github.event.pull_request.html_url }}\">Pull Request #${{ github.event.pull_request.number }}</a></li>" >> $GITHUB_ENV
-            else
-              echo "EVENT_TYPE=Push to ${{ github.ref_name }} branch" >> $GITHUB_ENV
-              echo "EVENT_URL=${{ github.server_url }}/${{ github.repository }}/tree/${{ github.ref_name }}" >> $GITHUB_ENV
-              echo "PR_LIST_ITEM=" >> $GITHUB_ENV
-            fi
-          fi
-        fi
-
-    - name: Fail if supplementary scan found secrets
-      shell: bash
-      run: |
-        if [ -f ".secrets_found_marker" ] && [ "$(cat .secrets_found_marker)" == "true" ]; then
-          # Check if we successfully generated the output file
-          if [ -s "trufflehog_output.json" ]; then
-            echo "::error::Secrets were found in supplementary scans! Failing the workflow."
-
-            # Create annotations directly here as well (belt-and-suspenders approach)
-            jq -c '.[]' trufflehog_output.json | while read -r finding; do
-              file=$(echo "$finding" | jq -r '.file // "unknown"')
-              line=$(echo "$finding" | jq -r '.line // "1"')
-              detector=$(echo "$finding" | jq -r '.detector_type // "Unknown"')
-              commit=$(echo "$finding" | jq -r '.commit_hash // "unknown"')
-              author=$(echo "$finding" | jq -r '.commit_author // "unknown"')
-
-              # Skip files that are "unknown" as they won't display properly
-              if [ "$file" != "unknown" ] && [ "$file" != "N/A (filesystem scan)" ] && [ "${file:0:1}" != "(" ]; then
-                echo "::warning file=${file},line=${line}::Supplementary scan: Secret detected: ${detector} - Author: ${author} - Commit: ${commit:0:7}"
-              else
-                echo "::warning::Supplementary scan: Secret detected: ${detector} in unknown location - Author: ${author} - Commit: ${commit:0:7}"
-              fi
-            done
-          else
-            echo "::error::Secrets were found in supplementary scans but output processing failed. Check raw output."
-          fi
-
-          exit 1
         fi
