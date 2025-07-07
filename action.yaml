@@ -727,18 +727,18 @@ runs:
             PR_NUM=$(echo $pr_ref | sed 's/.*\/pr\///')
             echo "Scanning PR #$PR_NUM reference..."
 
-            # Create a temporary branch for scanning
-            git checkout -b temp-pr-scan-$PR_NUM $pr_ref
+            # Get current branch to return to later
+            CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
-            # Scan this PR
+            # Instead of creating a new local branch, just scan directly from the remote reference
+            echo "Scanning PR reference $pr_ref directly..."
             docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd \
               --results=verified,unknown,unverified \
+              --branch "remotes/origin/pr/$PR_NUM" \
               --max-depth 500 \
               --json --no-update >> trufflehog_raw_unfiltered.txt || true
 
-            # Return to original branch
-            git checkout ${{env.branch}}
-            git branch -D temp-pr-scan-$PR_NUM
+            echo "Finished scanning PR #$PR_NUM"
           done
         else
           echo "No PR references found to scan"
