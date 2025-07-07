@@ -757,3 +757,17 @@ runs:
           --since-commit $FIRST_COMMIT \
           --max-depth 1000 \
           --json --no-update >> trufflehog_raw_unfiltered.txt || true
+
+        # Add this after the main full scan to also scan the current state of files
+        echo "Adding filesystem scan to ensure consistent detection..."
+        FILES_TO_SCAN=$(find . -type f -not -path "*/\.*" -not -path "*/node_modules/*" -not -path "*/vendor/*")
+
+        for file in $FILES_TO_SCAN; do
+          # Skip binary files and very large files
+          if [ -f "$file" ] && [ "$(stat -c%s "$file")" -lt 1000000 ] && ! file "$file" | grep -q "binary"; then
+            echo "Scanning current file state: $file"
+            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem \
+              --results=verified,unknown,unverified \
+              --json "/pwd/$file" >> trufflehog_raw_unfiltered.txt 2>/dev/null || true
+          fi
+        done
