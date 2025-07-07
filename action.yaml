@@ -777,6 +777,89 @@ runs:
         if grep -q "DetectorName" trufflehog_raw_unfiltered.txt; then
           echo "Secrets found in supplementary scans! Updating environment variable..."
           echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
+          # Also create a marker file to use within the same step
+          echo "true" > .secrets_found_marker
         else
           echo "No secrets found in supplementary scans."
+        fi
+
+    - name: Check supplementary scan results
+      shell: bash
+      run: |
+        if [ -f ".secrets_found_marker" ] && [ "$(cat .secrets_found_marker)" == "true" ]; then
+          echo "Secrets were found in supplementary scans - forcing notification flow"
+          echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
+
+          # Process findings for notification
+          if [ -s trufflehog_raw_unfiltered.txt ]; then
+            # Only set the flag if we found secrets
+            echo "Processing detailed TruffleHog output..."
+
+            # Extract the actual findings (non-metadata lines)
+            cat trufflehog_raw_unfiltered.txt | grep -v "^{\"level\"" | grep -v "finished scanning" > trufflehog_findings.txt
+
+            # Continue with your existing notification processing
+            # This ensures the output files exist for the notification steps
+            echo "[" > trufflehog_array.json
+            cat trufflehog_findings.txt | tr '\n' ',' | sed 's/,$//' >> trufflehog_array.json
+            echo "]" >> trufflehog_array.json
+
+            # Generate the same output file expected by your notification steps
+            jq 'map(
+              if .SourceMetadata.Data.Git.file != null then
+                {
+                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                  "repository": "${{ github.repository }}",
+                  "source": "TruffleHog GitHub Action",
+                  "file": .SourceMetadata.Data.Git.file,
+                  "line": .SourceMetadata.Data.Git.line,
+                  "detector_type": .DetectorName,
+                  "commit_hash": .SourceMetadata.Data.Git.commit,
+                  "commit_author": .SourceMetadata.Data.Git.email,
+                  "commit_date": .SourceMetadata.Data.Git.timestamp,
+                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                  "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
+                }
+              elif .SourceMetadata.Data.Filesystem.file != null then
+                {
+                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                  "repository": "${{ github.repository }}",
+                  "source": "TruffleHog GitHub Action",
+                  "file": .SourceMetadata.Data.Filesystem.file,
+                  "line": .SourceMetadata.Data.Filesystem.line,
+                  "detector_type": .DetectorName,
+                  "commit_hash": "N/A (filesystem scan)",
+                  "commit_author": "N/A (filesystem scan)",
+                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                  "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
+                }
+              elif .SourceMetadata != null then
+                {
+                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                  "repository": "${{ github.repository }}",
+                  "source": "TruffleHog GitHub Action",
+                  "file": (.SourceMetadata | tostring | .[0:100] + "..."),
+                  "line": "unknown",
+                  "detector_type": .DetectorName,
+                  "commit_hash": (.SourceMetadata.Data.Git.commit // "unknown"),
+                  "commit_author": (.SourceMetadata.Data.Git.email // "unknown"),
+                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                  "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
+                }
+              else
+                {
+                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                  "repository": "${{ github.repository }}",
+                  "source": "TruffleHog GitHub Action",
+                  "file": "unknown",
+                  "line": "unknown",
+                  "detector_type": (.DetectorName // "Unknown"),
+                  "commit_hash": "unknown",
+                  "commit_author": "unknown",
+                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                  "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
+                }
+              end
+            )' trufflehog_array.json > trufflehog_output.json || true
+          fi
         fi
