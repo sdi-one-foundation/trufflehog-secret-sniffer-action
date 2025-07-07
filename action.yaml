@@ -771,3 +771,12 @@ runs:
               --json "/pwd/$file" >> trufflehog_raw_unfiltered.txt 2>/dev/null || true
           fi
         done
+
+        # Add this at the end of the "Fix Git references" function, after all supplementary scans
+        echo "Checking if supplementary scans found any secrets..."
+        if grep -q "DetectorName" trufflehog_raw_unfiltered.txt; then
+          echo "Secrets found in supplementary scans! Updating environment variable..."
+          echo "TRUFFLEHOG_FOUND_SECRETS=true" >> $GITHUB_ENV
+        else
+          echo "No secrets found in supplementary scans."
+        fi
