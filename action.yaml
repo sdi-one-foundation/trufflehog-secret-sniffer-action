@@ -26,7 +26,8 @@ runs:
     - uses: actions/checkout@v3
       with:
         ref: ${{env.branch}}
-        fetch-depth: ${{ env.SCAN_TYPE == 'full' && '0' || '100' }}
+        fetch-depth: 0  # Always use 0 for full scans to get complete history
+        fetch-tags: true  # Also fetch tags to ensure all refs are available
 
     - name: Create Truuflehog Allow List File
       shell: bash
@@ -121,7 +122,17 @@ runs:
           fi
         else
           # For full scans (pushes), scan the entire repo history
-          echo "Running full git history scan..."
+          echo "Running comprehensive git history scan..."
+
+          # Ensure we have all refs
+          git fetch --unshallow --tags --force origin || echo "Repository may already be unshallow"
+
+          # Identify all branches to scan
+          echo "Identifying all branches and refs..."
+          ALL_BRANCHES=$(git branch -r | grep -v HEAD | sed 's/origin\///')
+
+          # Run TruffleHog on the entire repository with all branches
+          echo "Running thorough scan of all Git history..."
           docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd \
             --results=verified,unknown,unverified \
             --regex ".*LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ.*" \
@@ -130,6 +141,10 @@ runs:
             --regex ".*LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t.*" \
             --regex ".*MIIJ.*" \
             --regex ".*MIIEv.*" \
+            --since-commit $(git rev-list --max-parents=0 HEAD) \
+            --branch main \
+            --branch develop \
+            --branch $ALL_BRANCHES \
             --json --no-update > trufflehog_raw_unfiltered.txt || true
         fi
 
@@ -709,3 +724,60 @@ runs:
           echo "BASE_SHA=$BASE_SHA" >> $GITHUB_ENV
           echo "HEAD_SHA=$HEAD_SHA" >> $GITHUB_ENV
         fi
+
+        # After the main scan, also scan PR references
+        echo "Fetching and scanning Pull Request references..."
+        git config --add remote.origin.fetch '+refs/pull/*/head:refs/remotes/origin/pr/*'
+        git fetch --force origin
+
+        # Get list of PR refs
+        PR_REFS=$(git for-each-ref --format='%(refname)' refs/remotes/origin/pr/)
+
+        if [ -n "$PR_REFS" ]; then
+          echo "Found PR references to scan"
+          for pr_ref in $PR_REFS; do
+            PR_NUM=$(echo $pr_ref | sed 's/.*\/pr\///')
+            echo "Scanning PR #$PR_NUM reference..."
+
+            # Create a temporary branch for scanning
+            git checkout -b temp-pr-scan-$PR_NUM $pr_ref
+
+            # Scan this PR
+            docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd \
+              --results=verified,unknown,unverified \
+              --regex ".*LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ.*" \
+              --regex ".*LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t.*" \
+              --regex ".*LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=.*" \
+              --regex ".*LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t.*" \
+              --regex ".*MIIJ.*" \
+              --regex ".*MIIEv.*" \
+              --max-depth 500 \
+              --json --no-update >> trufflehog_raw_unfiltered.txt || true
+
+            # Return to original branch
+            git checkout ${{env.branch}}
+            git branch -D temp-pr-scan-$PR_NUM
+          done
+        else
+          echo "No PR references found to scan"
+        fi
+
+        # Add an additional scan for a broader commit range
+        echo "Performing a supplementary deep scan..."
+
+        # Get the earliest commit
+        FIRST_COMMIT=$(git rev-list --max-parents=0 HEAD)
+        CURRENT_HEAD=$(git rev-parse HEAD)
+
+        echo "Scanning from earliest commit ($FIRST_COMMIT) to current HEAD ($CURRENT_HEAD)..."
+        docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest git file:///pwd \
+          --results=verified,unknown,unverified \
+          --regex ".*LS0tLS1CRUdJTiBSU0EgUFJJVkFURSBLRVktLS0tLQ.*" \
+          --regex ".*LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0t.*" \
+          --regex ".*LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0=.*" \
+          --regex ".*LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0t.*" \
+          --regex ".*MIIJ.*" \
+          --regex ".*MIIEv.*" \
+          --since-commit $FIRST_COMMIT \
+          --max-depth 1000 \
+          --json --no-update >> trufflehog_raw_unfiltered.txt || true
