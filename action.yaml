@@ -663,9 +663,20 @@ runs:
       run: |
         echo "Ensuring Git repository is in a healthy state..."
 
-        # Make sure we have a full clone, not shallow
-        echo "Fetching complete Git history..."
-        git fetch --unshallow --prune || echo "Repository may already be unshallow"
+        # Make sure we have a full clone, not shallow, and fetch both base and head refs
+        echo "Fetching Git history and refs..."
+        if [ "${{ github.event_name }}" == "pull_request" ]; then
+          # For PRs, explicitly fetch both the base and head refs
+          git fetch --prune --no-tags origin ${{ github.event.pull_request.base.ref }} || echo "Could not fetch base ref"
+          git fetch --prune --no-tags origin ${{ github.event.pull_request.head.ref }} || echo "Could not fetch head ref"
+
+          # Also fetch the specific SHAs to ensure they exist
+          git fetch --prune origin ${{ github.event.pull_request.base.sha }} || echo "Could not fetch base SHA"
+          git fetch --prune origin ${{ github.event.pull_request.head.sha }} || echo "Could not fetch head SHA"
+        else
+          # For non-PRs, unshallow if needed
+          git fetch --unshallow --prune || echo "Repository may already be unshallow"
+        fi
 
         # Clean any potential corrupted objects
         echo "Running Git garbage collection and checking repository..."
@@ -675,23 +686,39 @@ runs:
         # Get the proper BASE_SHA and HEAD_SHA for PR scans
         if [ "${{ github.event_name }}" == "pull_request" ]; then
           echo "Setting up proper commit references for pull request..."
-          # Use merge-base to find the common ancestor - more reliable than direct base reference
-          BASE_SHA=$(git merge-base ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
-          HEAD_SHA=${{ github.event.pull_request.head.sha }}
 
-          # Verify both SHAs exist
-          if ! git cat-file -e $BASE_SHA 2>/dev/null; then
-            echo "Warning: BASE_SHA $BASE_SHA is not valid, using fallback..."
-            BASE_SHA=$(git rev-list --max-parents=0 HEAD)
+          # Start with the GitHub-provided SHAs
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          # Verify both SHAs exist, with more robust error handling
+          if ! git rev-parse --quiet --verify "$BASE_SHA^{commit}" >/dev/null 2>&1; then
+            echo "Warning: BASE_SHA $BASE_SHA is not valid, using current HEAD's parent..."
+            BASE_SHA=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
+            echo "New BASE_SHA: $BASE_SHA"
           fi
 
-          if ! git cat-file -e $HEAD_SHA 2>/dev/null; then
+          if ! git rev-parse --quiet --verify "$HEAD_SHA^{commit}" >/dev/null 2>&1; then
             echo "Warning: HEAD_SHA $HEAD_SHA is not valid, using current HEAD..."
             HEAD_SHA=$(git rev-parse HEAD)
+            echo "New HEAD_SHA: $HEAD_SHA"
           fi
 
-          echo "BASE_SHA=$BASE_SHA" >> $GITHUB_ENV
-          echo "HEAD_SHA=$HEAD_SHA" >> $GITHUB_ENV
+          # Now try to find a common ancestor if both SHAs are valid
+          if git rev-parse --quiet --verify "$BASE_SHA^{commit}" >/dev/null 2>&1 && \
+             git rev-parse --quiet --verify "$HEAD_SHA^{commit}" >/dev/null 2>&1; then
+            # Try to find merge base, but fallback gracefully if it fails
+            MERGE_BASE=$(git merge-base "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || echo "")
+            if [ -n "$MERGE_BASE" ]; then
+              echo "Found common ancestor: $MERGE_BASE"
+              BASE_SHA=$MERGE_BASE
+            else
+              echo "Could not find common ancestor, using base SHA directly"
+            fi
+          fi
+
+          echo "Final BASE_SHA=$BASE_SHA" >> $GITHUB_ENV
+          echo "Final HEAD_SHA=$HEAD_SHA" >> $GITHUB_ENV
         fi
 
     - name: Post success message to PR
