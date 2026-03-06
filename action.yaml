@@ -19,20 +19,36 @@ runs:
         if [ "${{ github.event_name }}" == "pull_request" ]; then
           echo "branch=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
           echo "SCAN_TYPE=changes" >> $GITHUB_ENV
-          echo "BASE_SHA=${{ github.event.pull_request.base.sha }}" >> $GITHUB_ENV
-          echo "HEAD_SHA=${{ github.event.pull_request.head.sha }}" >> $GITHUB_ENV
         fi
 
     - uses: actions/checkout@v3
       with:
         ref: ${{env.branch}}
-        fetch-depth: ${{ env.SCAN_TYPE == 'full' && '0' || '100' }}
+        fetch-depth: 0
 
-    - name: Create Truuflehog Allow List File
+    - name: Ensure Git references are valid
+      if: github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        echo "Fetching Git history and refs for PR scan..."
+        git fetch --prune --no-tags origin ${{ github.event.pull_request.base.ref }} || echo "Could not fetch base ref"
+        git fetch --prune --no-tags origin +refs/pull/${{ github.event.pull_request.number }}/head:refs/remotes/origin/pr/${{ github.event.pull_request.number }} || echo "Could not fetch PR head ref"
+
+        # Verify BASE_SHA exists (needed for --since-commit flag)
+        BASE_SHA="${{ github.event.pull_request.base.sha }}"
+
+        if ! git rev-parse --quiet --verify "$BASE_SHA^{commit}" >/dev/null 2>&1; then
+          echo "Warning: BASE_SHA $BASE_SHA is not valid, finding merge base..."
+          BASE_SHA=$(git merge-base origin/${{ github.event.pull_request.base.ref }} HEAD 2>/dev/null || git rev-parse HEAD~10)
+        fi
+
+        echo "VALIDATED_BASE_SHA=$BASE_SHA" >> $GITHUB_ENV
+        echo "Using BASE_SHA: $BASE_SHA"
+
+    - name: Create Trufflehog Allow List File
       shell: bash
       run: cat ${{ github.action_path }}/.trufflehog-allowlist.txt >> .trufflehog-allowlist.txt
 
-    # Replace the official TruffleHog action with direct Docker scan
     - name: Scan for secrets
       id: trufflehog
       shell: bash
@@ -40,85 +56,32 @@ runs:
         # Run TruffleHog to scan for secrets
         echo "Running TruffleHog to scan for secrets..."
         if [ "${{ env.SCAN_TYPE }}" == "changes" ]; then
-          # For PRs, scan the changed files
-          echo "Getting changed files between ${{ env.BASE_SHA }} and ${{ env.HEAD_SHA }}..."
+          # For PRs, scan the git history of commits in this PR
+          echo "Scanning PR commits from ${{ env.VALIDATED_BASE_SHA }} to HEAD..."
 
-          # Use a more robust approach to get changed files
-          if git diff --name-only ${{ env.BASE_SHA }} ${{ env.HEAD_SHA }} > pr_changed_files.txt 2>/dev/null; then
-            echo "Successfully identified changed files"
-            # Count changed files
-            CHANGED_FILES_COUNT=$(wc -l < pr_changed_files.txt)
-            echo "Number of changed files: $CHANGED_FILES_COUNT"
-          else
-            echo "Warning: Error getting changed files with git diff, using alternative method..."
-            # Fallback: Get files changed in recent commits
-            git diff --name-only HEAD~10 HEAD > pr_changed_files.txt || echo "No files found"
-          fi
+          # Use git mode with --since-commit to scan only PR commits
+          # This will catch secrets even if they were added and then removed within the PR
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest \
+            git file:///pwd \
+            --since-commit=${{ env.VALIDATED_BASE_SHA }} \
+            --only-verified \
+            --fail \
+            --json > trufflehog_raw_unfiltered.txt 2>&1 || true
 
-          # Filter to only include files that still exist and handle special characters
-          echo "Filtering to only include existing files..."
-          > pr_existing_files.txt
-          while IFS= read -r file; do
-            if [ -f "$file" ]; then
-              echo "$file" >> pr_existing_files.txt
-            else
-              echo "Skipping non-existent file: $file"
-            fi
-          done < pr_changed_files.txt
-          mv pr_existing_files.txt pr_changed_files.txt
-
-          # Check if any files remain after filtering
-          EXISTING_FILES_COUNT=$(wc -l < pr_changed_files.txt)
-          echo "Number of existing changed files: $EXISTING_FILES_COUNT"
-
-          if [ "$EXISTING_FILES_COUNT" -gt 0 ]; then
-            echo "Found $EXISTING_FILES_COUNT changed files to scan"
-
-            # Handle each file individually to prevent issues with special characters
-            echo "Preparing safe file list for TruffleHog..."
-            > safe_file_list.txt
-            while IFS= read -r file; do
-              # Escape special characters and quotes
-              escaped_file=$(printf "%q" "$file")
-              echo "$escaped_file" >> safe_file_list.txt
-            done < pr_changed_files.txt
-
-            # Scan files one by one to prevent failures affecting the entire scan
-            echo "Scanning files individually..."
-            > trufflehog_raw_unfiltered.txt
-            FOUND_SECRETS=false
-
-            while IFS= read -r file; do
-              echo "Scanning file: $file"
-              if docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json "/pwd/$file" >> trufflehog_raw_unfiltered.txt 2>/dev/null; then
-                echo "  Scan completed successfully"
-              else
-                echo "  Warning: Scanning this file returned a non-zero exit code, continuing with next file"
-              fi
-
-              # Check if this file had any secrets
-              if grep -q "DetectorName" trufflehog_raw_unfiltered.txt; then
-                FOUND_SECRETS=true
-              fi
-            done < pr_changed_files.txt
-
-            # Set the environment variable based on whether we found secrets
-            echo "TRUFFLEHOG_FOUND_SECRETS=$FOUND_SECRETS" >> $GITHUB_ENV
-          else
-            echo "No existing changed files found to scan - this is normal for PRs that only delete files or revert changes"
-            echo "Creating empty output file"
-            touch trufflehog_raw_unfiltered.txt
-            # Ensure the action doesn't fail
-            echo "TRUFFLEHOG_FOUND_SECRETS=false" >> $GITHUB_ENV
-          fi
+          echo "PR scan complete"
         else
-          # For full scans (pushes), scan the entire repo history
+          # For full scans (pushes to main), scan the entire git history
           echo "Running full git history scan..."
-          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest filesystem --only-verified --json . > trufflehog_raw_unfiltered.txt || true
+          docker run --rm -v "$(pwd):/pwd" -w /pwd trufflesecurity/trufflehog:latest \
+            git file:///pwd \
+            --only-verified \
+            --fail \
+            --json > trufflehog_raw_unfiltered.txt 2>&1 || true
         fi
 
         # Post-process to apply allowlist filtering
         echo "Looking for allowlist file..."
+        ALLOWLIST_FILE=""
         if [ -f ".trufflehog-allowlist.txt" ]; then
           echo "Found allowlist file at .trufflehog-allowlist.txt"
           ALLOWLIST_FILE=".trufflehog-allowlist.txt"
@@ -128,83 +91,63 @@ runs:
         elif [ -f "$GITHUB_ACTION_PATH/.trufflehog-allowlist.txt" ]; then
           echo "Using built-in allowlist from action"
           ALLOWLIST_FILE="$GITHUB_ACTION_PATH/.trufflehog-allowlist.txt"
-        else
-          echo "No allowlist file found. To exclude false positives, create a .trufflehog-allowlist.txt file in your repository."
-          echo "Using unfiltered results"
-          cp trufflehog_raw_unfiltered.txt trufflehog_raw_output.txt
-          # Continue with the rest of the script
-          # ...
-          return 0
         fi
 
-        # Only proceed with filtering if we found an allowlist file
-        echo "Filtering results using allowlist file: $ALLOWLIST_FILE"
-        echo "Contents of allowlist file ($ALLOWLIST_FILE):"
-        cat "$ALLOWLIST_FILE"
+        if [ -z "$ALLOWLIST_FILE" ]; then
+          echo "No allowlist file found. Using unfiltered results."
+          cp trufflehog_raw_unfiltered.txt trufflehog_raw_output.txt
+        else
+          # Filter results using allowlist
+          echo "Filtering results using allowlist file: $ALLOWLIST_FILE"
+          cat "$ALLOWLIST_FILE"
 
-        # Create a new file for filtered output
-        > trufflehog_raw_output.txt
+          # Create a new file for filtered output
+          > trufflehog_raw_output.txt
 
-        # Create an array of allowlist patterns (excluding comments and empty lines)
-        ALLOWLIST_PATTERNS=()
-        while IFS= read -r pattern || [ -n "$pattern" ]; do
-          # Skip comments and empty lines
-          if [[ ! "$pattern" =~ ^[[:space:]]*# && -n "$pattern" ]]; then
-            # Trim whitespace
-            pattern=$(echo "$pattern" | xargs)
-            # Convert * wildcards to .* for regex
-            pattern=$(echo "$pattern" | sed 's/\*/\.\*/g')
-            ALLOWLIST_PATTERNS+=("$pattern")
-            echo "Added pattern to allowlist (regex format): [$pattern]"
-          fi
-        done < "$ALLOWLIST_FILE"
-
-        # Process each line of TruffleHog output
-        while IFS= read -r line || [ -n "$line" ]; do
-          if [[ "$line" == *"level"* || "$line" == *"finished scanning"* ]]; then
-            # Always keep metadata lines
-            echo "$line" >> trufflehog_raw_output.txt
-          else
-            # For findings, extract the raw/redacted value and check against allowlist
-            EXCLUDE=false
-
-            # Extract the secret values that might match our patterns
-            RAW_VALUE=$(echo "$line" | jq -r '.Raw // ""')
-            REDACTED_VALUE=$(echo "$line" | jq -r '.Redacted // ""')
-            RAW_V2=$(echo "$line" | jq -r '.RawV2 // ""')
-
-            echo "Checking finding: Raw=[$RAW_VALUE], Redacted=[$REDACTED_VALUE], RawV2=[$RAW_V2]"
-
-            # Check against all patterns using regex matching
-            for pattern in "${ALLOWLIST_PATTERNS[@]}"; do
-              echo "  Testing pattern: [$pattern]"
-              if [[ -n "$RAW_VALUE" && "$RAW_VALUE" =~ $pattern ]]; then
-                EXCLUDE=true
-                echo "  ✓ MATCH FOUND in Raw value! Pattern: [$pattern]"
-                break
-              elif [[ -n "$REDACTED_VALUE" && "$REDACTED_VALUE" =~ $pattern ]]; then
-                EXCLUDE=true
-                echo "  ✓ MATCH FOUND in Redacted value! Pattern: [$pattern]"
-                break
-              elif [[ -n "$RAW_V2" && "$RAW_V2" =~ $pattern ]]; then
-                EXCLUDE=true
-                echo "  ✓ MATCH FOUND in RawV2 value! Pattern: [$pattern]"
-                break
-              fi
-            done
-
-            # If not excluded, keep the finding
-            if [ "$EXCLUDE" = false ]; then
-              echo "$line" >> trufflehog_raw_output.txt
-              echo "  ⚠️ NO MATCH FOUND - keeping finding"
-            else
-              echo "  ✓ Finding excluded due to allowlist match"
+          # Create an array of allowlist patterns (excluding comments and empty lines)
+          ALLOWLIST_PATTERNS=()
+          while IFS= read -r pattern || [ -n "$pattern" ]; do
+            if [[ ! "$pattern" =~ ^[[:space:]]*# && -n "$pattern" ]]; then
+              pattern=$(echo "$pattern" | xargs)
+              pattern=$(echo "$pattern" | sed 's/\*/\.\*/g')
+              ALLOWLIST_PATTERNS+=("$pattern")
+              echo "Added pattern to allowlist (regex format): [$pattern]"
             fi
-          fi
-        done < trufflehog_raw_unfiltered.txt
+          done < "$ALLOWLIST_FILE"
 
-        echo "Filtering complete. Before: $(grep -v "level\|finished scanning" trufflehog_raw_unfiltered.txt | wc -l) findings, After: $(grep -v "level\|finished scanning" trufflehog_raw_output.txt | wc -l) findings"
-        # Only set the flag if we found secrets
+          # Process each line of TruffleHog output
+          while IFS= read -r line || [ -n "$line" ]; do
+            if [[ "$line" == *"level"* || "$line" == *"finished scanning"* ]]; then
+              echo "$line" >> trufflehog_raw_output.txt
+            else
+              EXCLUDE=false
+              RAW_VALUE=$(echo "$line" | jq -r '.Raw // ""')
+              REDACTED_VALUE=$(echo "$line" | jq -r '.Redacted // ""')
+              RAW_V2=$(echo "$line" | jq -r '.RawV2 // ""')
+
+              for pattern in "${ALLOWLIST_PATTERNS[@]}"; do
+                if [[ -n "$RAW_VALUE" && "$RAW_VALUE" =~ $pattern ]]; then
+                  EXCLUDE=true
+                  break
+                elif [[ -n "$REDACTED_VALUE" && "$REDACTED_VALUE" =~ $pattern ]]; then
+                  EXCLUDE=true
+                  break
+                elif [[ -n "$RAW_V2" && "$RAW_V2" =~ $pattern ]]; then
+                  EXCLUDE=true
+                  break
+                fi
+              done
+
+              if [ "$EXCLUDE" = false ]; then
+                echo "$line" >> trufflehog_raw_output.txt
+              fi
+            fi
+          done < trufflehog_raw_unfiltered.txt
+
+          echo "Filtering complete. Before: $(grep -v "level\|finished scanning" trufflehog_raw_unfiltered.txt | wc -l) findings, After: $(grep -v "level\|finished scanning" trufflehog_raw_output.txt | wc -l) findings"
+        fi
+
+        # Check if we found secrets
         if [ -s trufflehog_raw_output.txt ]; then
           # Count actual findings (not metadata lines)
           FINDINGS_COUNT=$(cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | grep -v "finished scanning" | wc -l)
@@ -246,63 +189,22 @@ runs:
                     "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
                     "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
                   }
-                elif .SourceMetadata.Data.Filesystem.file != null then
-                  {
-                    "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                    "repository": "${{ github.repository }}",
-                    "source": "TruffleHog GitHub Action",
-                    "file": .SourceMetadata.Data.Filesystem.file,
-                    "line": .SourceMetadata.Data.Filesystem.line,
-                    "detector_type": .DetectorName,
-                    "commit_hash": "N/A (filesystem scan)",
-                    "commit_author": "N/A (filesystem scan)",
-                    "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                    "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
-                  }
-                elif .SourceMetadata != null then
-                  {
-                    "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                    "repository": "${{ github.repository }}",
-                    "source": "TruffleHog GitHub Action",
-                    "file": (.SourceMetadata | tostring | .[0:100] + "..."),
-                    "line": "unknown",
-                    "detector_type": .DetectorName,
-                    "commit_hash": (.SourceMetadata.Data.Git.commit // "unknown"),
-                    "commit_author": (.SourceMetadata.Data.Git.email // "unknown"),
-                    "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                    "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
-                  }
                 else
                   {
                     "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
                     "repository": "${{ github.repository }}",
                     "source": "TruffleHog GitHub Action",
-                    "file": "unknown",
-                    "line": "unknown",
+                    "file": (.SourceMetadata.Data.Git.file // "unknown"),
+                    "line": (.SourceMetadata.Data.Git.line // "unknown"),
                     "detector_type": (.DetectorName // "Unknown"),
-                    "commit_hash": "unknown",
-                    "commit_author": "unknown",
+                    "commit_hash": (.SourceMetadata.Data.Git.commit // "unknown"),
+                    "commit_author": (.SourceMetadata.Data.Git.email // "unknown"),
+                    "commit_date": (.SourceMetadata.Data.Git.timestamp // "unknown"),
                     "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                    "recommendation": "Review recent changes for any sensitive information such as API keys, passwords, or private tokens."
+                    "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
                   }
                 end
               )' trufflehog_array.json > trufflehog_output.json || true
-            else
-              # If we detected secrets in the metadata but couldn't extract them, create a fallback message
-              echo "[" > trufflehog_output.json
-              for i in $(seq 1 $((SECRETS_COUNT + VERIFIED_COUNT))); do
-                echo "{
-                  \"detection_time\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\",
-                  \"repository\": \"${{ github.repository }}\",
-                  \"source\": \"TruffleHog GitHub Action\",
-                  \"file\": \"unknown (historical secret)\",
-                  \"line\": \"unknown\",
-                  \"detector_type\": \"Unknown\",
-                  \"message\": \"A historical secret was detected in this repository's git history. For security reasons, the actual secret is not displayed.\",
-                  \"recommendation\": \"Review the repository history for any sensitive information such as API keys, passwords, or private tokens.\"
-                }$([ "$i" -lt "$((SECRETS_COUNT + VERIFIED_COUNT))" ] && echo ",")" >> trufflehog_output.json
-              done
-              echo "]" >> trufflehog_output.json
             fi
           else
             echo "No secrets found by TruffleHog"
@@ -423,9 +325,6 @@ runs:
             }];
           }
 
-          // Remove this line as it's now in the separate step
-          // core.exportVariable('TRUFFLEHOG_FINDINGS', JSON.stringify(findings, null, 2));
-
           // Build a table of findings if we have detailed information
           let secretsTable = '';
           if (findings.length > 0 && findings[0].file) {
@@ -459,7 +358,6 @@ runs:
             body: commentBody
           });
 
-    # Add this step right after processing the findings but before the PR comment
     - name: Create GitHub Annotations for findings
       if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
       shell: bash
@@ -656,70 +554,6 @@ runs:
       if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
       run: exit 1
       shell: bash
-
-    # Check for and fix potential Git reference issues
-    - name: Fix Git references
-      shell: bash
-      run: |
-        echo "Ensuring Git repository is in a healthy state..."
-
-        # Make sure we have a full clone, not shallow, and fetch both base and head refs
-        echo "Fetching Git history and refs..."
-        if [ "${{ github.event_name }}" == "pull_request" ]; then
-          # For PRs, explicitly fetch both the base and head refs
-          git fetch --prune --no-tags origin ${{ github.event.pull_request.base.ref }} || echo "Could not fetch base ref"
-          git fetch --prune --no-tags origin ${{ github.event.pull_request.head.ref }} || echo "Could not fetch head ref"
-
-          # Also fetch the specific SHAs to ensure they exist
-          git fetch --prune origin ${{ github.event.pull_request.base.sha }} || echo "Could not fetch base SHA"
-          git fetch --prune origin ${{ github.event.pull_request.head.sha }} || echo "Could not fetch head SHA"
-        else
-          # For non-PRs, unshallow if needed
-          git fetch --unshallow --prune || echo "Repository may already be unshallow"
-        fi
-
-        # Clean any potential corrupted objects
-        echo "Running Git garbage collection and checking repository..."
-        git gc --auto
-        git fsck --full || echo "Some Git objects may be missing (this is expected in some cases)"
-
-        # Get the proper BASE_SHA and HEAD_SHA for PR scans
-        if [ "${{ github.event_name }}" == "pull_request" ]; then
-          echo "Setting up proper commit references for pull request..."
-
-          # Start with the GitHub-provided SHAs
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-
-          # Verify both SHAs exist, with more robust error handling
-          if ! git rev-parse --quiet --verify "$BASE_SHA^{commit}" >/dev/null 2>&1; then
-            echo "Warning: BASE_SHA $BASE_SHA is not valid, using current HEAD's parent..."
-            BASE_SHA=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
-            echo "New BASE_SHA: $BASE_SHA"
-          fi
-
-          if ! git rev-parse --quiet --verify "$HEAD_SHA^{commit}" >/dev/null 2>&1; then
-            echo "Warning: HEAD_SHA $HEAD_SHA is not valid, using current HEAD..."
-            HEAD_SHA=$(git rev-parse HEAD)
-            echo "New HEAD_SHA: $HEAD_SHA"
-          fi
-
-          # Now try to find a common ancestor if both SHAs are valid
-          if git rev-parse --quiet --verify "$BASE_SHA^{commit}" >/dev/null 2>&1 && \
-             git rev-parse --quiet --verify "$HEAD_SHA^{commit}" >/dev/null 2>&1; then
-            # Try to find merge base, but fallback gracefully if it fails
-            MERGE_BASE=$(git merge-base "$BASE_SHA" "$HEAD_SHA" 2>/dev/null || echo "")
-            if [ -n "$MERGE_BASE" ]; then
-              echo "Found common ancestor: $MERGE_BASE"
-              BASE_SHA=$MERGE_BASE
-            else
-              echo "Could not find common ancestor, using base SHA directly"
-            fi
-          fi
-
-          echo "Final BASE_SHA=$BASE_SHA" >> $GITHUB_ENV
-          echo "Final HEAD_SHA=$HEAD_SHA" >> $GITHUB_ENV
-        fi
 
     - name: Post success message to PR
       if: github.event_name == 'pull_request' && env.TRUFFLEHOG_FOUND_SECRETS != 'true'
