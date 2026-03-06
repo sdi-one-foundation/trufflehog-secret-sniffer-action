@@ -335,7 +335,11 @@ runs:
           `;
           }
 
-          const commentBody = `## ⚠️ Security Alert: Secrets Detected by TruffleHog ⚠️
+          // Unique marker to identify TruffleHog comments
+          const COMMENT_MARKER = '<!-- trufflehog-scan-results -->';
+
+          const commentBody = `${COMMENT_MARKER}
+          ## ⚠️ Security Alert: Secrets Detected by TruffleHog ⚠️
           This pull request has been scanned for secrets using TruffleHog, and sensitive information has been detected. Please review the findings below and take appropriate action to secure your repository.
 
           TruffleHog has detected secrets in this pull request. Please review and remove any sensitive information.
@@ -349,14 +353,38 @@ runs:
           \`\`\`
           </details>
 
-          **Important:** Committing secrets to a repository poses significant security risks. Please remove these secrets and consider them compromised.`;
+          **Important:** Committing secrets to a repository poses significant security risks. Please remove these secrets and consider them compromised.
 
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
+          *Last scanned: ${new Date().toISOString()}*`;
+
+          // Find existing TruffleHog comment
+          const { data: comments } = await github.rest.issues.listComments({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: commentBody
+            issue_number: context.issue.number
           });
+
+          const existingComment = comments.find(c => c.body.includes(COMMENT_MARKER));
+
+          if (existingComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: commentBody
+            });
+            console.log('Updated existing TruffleHog comment');
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });
+            console.log('Created new TruffleHog comment');
+          }
 
     - name: Create GitHub Annotations for findings
       if: env.TRUFFLEHOG_FOUND_SECRETS == 'true'
@@ -561,9 +589,11 @@ runs:
       with:
         github-token: ${{ github.token }}
         script: |
-          const fs = require('fs');
+          // Unique marker to identify TruffleHog comments
+          const COMMENT_MARKER = '<!-- trufflehog-scan-results -->';
 
-          const commentBody = `## ✅ Security Scan Passed
+          const commentBody = `${COMMENT_MARKER}
+          ## ✅ Security Scan Passed
 
           This pull request has been scanned for secrets using TruffleHog, and no sensitive information was detected.
 
@@ -575,9 +605,31 @@ runs:
 
           Good job keeping your code secure! 🔒`;
 
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
+          // Find existing TruffleHog comment
+          const { data: comments } = await github.rest.issues.listComments({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            body: commentBody
+            issue_number: context.issue.number
           });
+
+          const existingComment = comments.find(c => c.body.includes(COMMENT_MARKER));
+
+          if (existingComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: commentBody
+            });
+            console.log('Updated existing TruffleHog comment');
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });
+            console.log('Created new TruffleHog comment');
+          }
