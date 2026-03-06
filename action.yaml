@@ -76,7 +76,7 @@ runs:
             git file:///pwd \
             --only-verified \
             --fail \
-            --json > trufflehog_raw_unfiltered.txt 2>&1 || true
+            --json 2>/dev/null > trufflehog_raw_unfiltered.txt || true
         fi
 
         # Post-process to apply allowlist filtering
@@ -115,46 +115,43 @@ runs:
             fi
           done < "$ALLOWLIST_FILE"
 
-          # Process each line of TruffleHog output
+          # Process each line of TruffleHog output (only valid JSON lines)
           while IFS= read -r line || [ -n "$line" ]; do
-            if [[ "$line" == *"level"* || "$line" == *"finished scanning"* ]]; then
-              echo "$line" >> trufflehog_raw_output.txt
-            else
-              EXCLUDE=false
-              RAW_VALUE=$(echo "$line" | jq -r '.Raw // ""')
-              REDACTED_VALUE=$(echo "$line" | jq -r '.Redacted // ""')
-              RAW_V2=$(echo "$line" | jq -r '.RawV2 // ""')
+            # Skip empty lines and non-JSON lines
+            if [[ -z "$line" || ! "$line" =~ ^\{ ]]; then
+              continue
+            fi
 
-              for pattern in "${ALLOWLIST_PATTERNS[@]}"; do
-                if [[ -n "$RAW_VALUE" && "$RAW_VALUE" =~ $pattern ]]; then
-                  EXCLUDE=true
-                  break
-                elif [[ -n "$REDACTED_VALUE" && "$REDACTED_VALUE" =~ $pattern ]]; then
-                  EXCLUDE=true
-                  break
-                elif [[ -n "$RAW_V2" && "$RAW_V2" =~ $pattern ]]; then
-                  EXCLUDE=true
-                  break
-                fi
-              done
+            EXCLUDE=false
+            RAW_VALUE=$(echo "$line" | jq -r '.Raw // ""' 2>/dev/null || echo "")
+            REDACTED_VALUE=$(echo "$line" | jq -r '.Redacted // ""' 2>/dev/null || echo "")
+            RAW_V2=$(echo "$line" | jq -r '.RawV2 // ""' 2>/dev/null || echo "")
 
-              if [ "$EXCLUDE" = false ]; then
-                echo "$line" >> trufflehog_raw_output.txt
+            for pattern in "${ALLOWLIST_PATTERNS[@]}"; do
+              if [[ -n "$RAW_VALUE" && "$RAW_VALUE" =~ $pattern ]]; then
+                EXCLUDE=true
+                break
+              elif [[ -n "$REDACTED_VALUE" && "$REDACTED_VALUE" =~ $pattern ]]; then
+                EXCLUDE=true
+                break
+              elif [[ -n "$RAW_V2" && "$RAW_V2" =~ $pattern ]]; then
+                EXCLUDE=true
+                break
               fi
+            done
+
+            if [ "$EXCLUDE" = false ]; then
+              echo "$line" >> trufflehog_raw_output.txt
             fi
           done < trufflehog_raw_unfiltered.txt
 
-          echo "Filtering complete. Before: $(grep -v "level\|finished scanning" trufflehog_raw_unfiltered.txt | wc -l) findings, After: $(grep -v "level\|finished scanning" trufflehog_raw_output.txt | wc -l) findings"
+          echo "Filtering complete. Before: $(grep -c '^{' trufflehog_raw_unfiltered.txt || echo 0) findings, After: $(grep -c '^{' trufflehog_raw_output.txt || echo 0) findings"
         fi
 
         # Check if we found secrets
         if [ -s trufflehog_raw_output.txt ]; then
-          # Count actual findings (not metadata lines)
-          FINDINGS_COUNT=$(cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | grep -v "finished scanning" | wc -l)
-
-          # Debug the raw output
-          echo "Raw output sample (first 50 lines):"
-          head -n 50 trufflehog_raw_output.txt
+          # Count actual findings (JSON lines starting with {)
+          FINDINGS_COUNT=$(grep -c '^{' trufflehog_raw_output.txt || echo 0)
 
           if [ "$FINDINGS_COUNT" -gt 0 ]; then
             echo "Found $FINDINGS_COUNT potential secrets"
@@ -163,8 +160,8 @@ runs:
             # Process output for notification
             echo "Processing detailed TruffleHog output (found $FINDINGS_COUNT findings)..."
 
-            # Extract the actual findings (non-metadata lines)
-            cat trufflehog_raw_output.txt | grep -v "^{\"level\"" | grep -v "finished scanning" > trufflehog_findings.txt
+            # Extract the actual findings (JSON lines only)
+            grep '^{' trufflehog_raw_output.txt > trufflehog_findings.txt
 
             # If we have findings, process them
             if [ -s trufflehog_findings.txt ]; then
