@@ -163,6 +163,11 @@ runs:
             # Extract the actual findings (JSON lines only)
             grep '^{' trufflehog_raw_output.txt > trufflehog_findings.txt
 
+            # Debug: Show raw findings structure
+            echo "=== Raw findings structure (first 3) ==="
+            head -3 trufflehog_findings.txt | jq '.' 2>/dev/null || cat trufflehog_findings.txt | head -3
+            echo "=== End raw findings ==="
+
             # If we have findings, process them
             if [ -s trufflehog_findings.txt ]; then
               # Convert line-delimited JSON to array
@@ -171,37 +176,32 @@ runs:
               echo "]" >> trufflehog_array.json
 
               # Process each finding to extract file and line information
+              # Handle multiple possible source metadata structures
               jq 'map(
-                if .SourceMetadata.Data.Git.file != null then
-                  {
-                    "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                    "repository": "${{ github.repository }}",
-                    "source": "TruffleHog GitHub Action",
-                    "file": .SourceMetadata.Data.Git.file,
-                    "line": .SourceMetadata.Data.Git.line,
-                    "detector_type": .DetectorName,
-                    "commit_hash": .SourceMetadata.Data.Git.commit,
-                    "commit_author": .SourceMetadata.Data.Git.email,
-                    "commit_date": .SourceMetadata.Data.Git.timestamp,
-                    "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                    "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
-                  }
-                else
-                  {
-                    "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
-                    "repository": "${{ github.repository }}",
-                    "source": "TruffleHog GitHub Action",
-                    "file": (.SourceMetadata.Data.Git.file // "unknown"),
-                    "line": (.SourceMetadata.Data.Git.line // "unknown"),
-                    "detector_type": (.DetectorName // "Unknown"),
-                    "commit_hash": (.SourceMetadata.Data.Git.commit // "unknown"),
-                    "commit_author": (.SourceMetadata.Data.Git.email // "unknown"),
-                    "commit_date": (.SourceMetadata.Data.Git.timestamp // "unknown"),
-                    "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
-                    "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
-                  }
-                end
+                # Try to extract file info from various possible locations
+                (.SourceMetadata.Data.Git.file // .SourceMetadata.Data.Filesystem.file // .Raw // "unknown") as $file |
+                (.SourceMetadata.Data.Git.line // .SourceMetadata.Data.Filesystem.line // "unknown") as $line |
+                (.SourceMetadata.Data.Git.commit // "unknown") as $commit |
+                (.SourceMetadata.Data.Git.email // "unknown") as $author |
+                (.SourceMetadata.Data.Git.timestamp // "unknown") as $timestamp |
+                {
+                  "detection_time": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'",
+                  "repository": "${{ github.repository }}",
+                  "source": "TruffleHog GitHub Action",
+                  "file": $file,
+                  "line": $line,
+                  "detector_type": (.DetectorName // "Unknown"),
+                  "commit_hash": $commit,
+                  "commit_author": $author,
+                  "commit_date": $timestamp,
+                  "message": "A secret was detected in this repository. For security reasons, the actual secret is not displayed.",
+                  "recommendation": "Review this file for any sensitive information such as API keys, passwords, or private tokens."
+                }
               )' trufflehog_array.json > trufflehog_output.json || true
+
+              echo "=== Processed findings ==="
+              cat trufflehog_output.json
+              echo "=== End processed findings ==="
             fi
           else
             echo "No secrets found by TruffleHog"
