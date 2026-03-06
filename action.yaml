@@ -115,10 +115,14 @@ runs:
             fi
           done < "$ALLOWLIST_FILE"
 
-          # Process each line of TruffleHog output (only valid JSON lines)
+          # Process each line of TruffleHog output (only actual findings, not log messages)
           while IFS= read -r line || [ -n "$line" ]; do
-            # Skip empty lines and non-JSON lines
+            # Skip empty lines, non-JSON lines, and log messages (which have "level" field)
             if [[ -z "$line" || ! "$line" =~ ^\{ ]]; then
+              continue
+            fi
+            # Skip log messages - they have "level" but no "SourceMetadata"
+            if [[ "$line" == *'"level"'* ]]; then
               continue
             fi
 
@@ -145,13 +149,12 @@ runs:
             fi
           done < trufflehog_raw_unfiltered.txt
 
-          echo "Filtering complete. Before: $(grep -c '^{' trufflehog_raw_unfiltered.txt || echo 0) findings, After: $(grep -c '^{' trufflehog_raw_output.txt || echo 0) findings"
+          echo "Filtering complete. Before: $(grep -c 'SourceMetadata' trufflehog_raw_unfiltered.txt || echo 0) findings, After: $(grep -c 'SourceMetadata' trufflehog_raw_output.txt || echo 0) findings"
         fi
 
-        # Check if we found secrets
+        # Check if we found secrets (only count lines with SourceMetadata - actual findings)
         if [ -s trufflehog_raw_output.txt ]; then
-          # Count actual findings (JSON lines starting with {)
-          FINDINGS_COUNT=$(grep -c '^{' trufflehog_raw_output.txt || echo 0)
+          FINDINGS_COUNT=$(grep -c 'SourceMetadata' trufflehog_raw_output.txt || echo 0)
 
           if [ "$FINDINGS_COUNT" -gt 0 ]; then
             echo "Found $FINDINGS_COUNT potential secrets"
@@ -160,8 +163,8 @@ runs:
             # Process output for notification
             echo "Processing detailed TruffleHog output (found $FINDINGS_COUNT findings)..."
 
-            # Extract the actual findings (JSON lines only)
-            grep '^{' trufflehog_raw_output.txt > trufflehog_findings.txt
+            # Extract only actual findings (lines with SourceMetadata, not log messages)
+            grep 'SourceMetadata' trufflehog_raw_output.txt > trufflehog_findings.txt
 
             # Debug: Show raw findings structure
             echo "=== Raw findings structure (first 3) ==="
