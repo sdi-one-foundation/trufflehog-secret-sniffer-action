@@ -205,6 +205,57 @@ runs:
               echo "=== Processed findings ==="
               cat trufflehog_output.json
               echo "=== End processed findings ==="
+
+              # Check each finding to determine if it's in current files or history only
+              echo "Checking if secrets are in current files or git history only..."
+              > trufflehog_with_location.json
+              echo "[" > trufflehog_with_location.json
+
+              FIRST_ITEM=true
+              jq -c '.[]' trufflehog_output.json | while read -r finding; do
+                file=$(echo "$finding" | jq -r '.file // "unknown"')
+                line=$(echo "$finding" | jq -r '.line // "1"')
+
+                # Determine location status
+                LOCATION="history_only"
+                LOCATION_LABEL="📜 Git history only"
+
+                if [ "$file" != "unknown" ] && [ -f "$file" ]; then
+                  # File exists at HEAD - check if the line range still has content
+                  # We can't check for exact secret (we don't have it), but we can verify the file/line exists
+                  if [ "$line" != "unknown" ] && [ "$line" != "null" ]; then
+                    # Check if the file has at least that many lines
+                    FILE_LINES=$(wc -l < "$file" 2>/dev/null || echo "0")
+                    if [ "$FILE_LINES" -ge "$line" ]; then
+                      LOCATION="current_files"
+                      LOCATION_LABEL="📄 Current files"
+                    fi
+                  else
+                    # File exists but no line info - assume it's in current files
+                    LOCATION="current_files"
+                    LOCATION_LABEL="📄 Current files"
+                  fi
+                fi
+
+                # Add location fields to the finding
+                updated_finding=$(echo "$finding" | jq --arg loc "$LOCATION" --arg label "$LOCATION_LABEL" '. + {location: $loc, location_label: $label}')
+
+                if [ "$FIRST_ITEM" = true ]; then
+                  FIRST_ITEM=false
+                else
+                  echo "," >> trufflehog_with_location.json
+                fi
+                echo "$updated_finding" >> trufflehog_with_location.json
+              done
+
+              echo "]" >> trufflehog_with_location.json
+
+              # Replace the original file
+              mv trufflehog_with_location.json trufflehog_output.json
+
+              echo "=== Findings with location info ==="
+              cat trufflehog_output.json
+              echo "=== End findings with location ==="
             fi
           else
             echo "No secrets found by TruffleHog"
@@ -227,6 +278,22 @@ runs:
           echo "FILE_STATS<<EOF" >> $GITHUB_ENV
           echo "<ul>" >> $GITHUB_ENV
           jq -r 'group_by(.file) | map({file: .[0].file, count: length}) | .[] | "<li><code>" + .file + "</code>: " + (.count|tostring) + " finding(s)</li>"' trufflehog_output.json >> $GITHUB_ENV
+          echo "</ul>" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        fi
+
+        # Add location statistics to the environment (current files vs history only)
+        if [ -s trufflehog_output.json ]; then
+          echo "LOCATION_STATS<<EOF" >> $GITHUB_ENV
+          echo "<ul>" >> $GITHUB_ENV
+          CURRENT_COUNT=$(jq '[.[] | select(.location == "current_files")] | length' trufflehog_output.json)
+          HISTORY_COUNT=$(jq '[.[] | select(.location == "history_only")] | length' trufflehog_output.json)
+          if [ "$CURRENT_COUNT" -gt 0 ]; then
+            echo "<li>📄 <strong>In current files:</strong> $CURRENT_COUNT (requires removal from code)</li>" >> $GITHUB_ENV
+          fi
+          if [ "$HISTORY_COUNT" -gt 0 ]; then
+            echo "<li>📜 <strong>In git history only:</strong> $HISTORY_COUNT (was committed but since removed)</li>" >> $GITHUB_ENV
+          fi
           echo "</ul>" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
         fi
@@ -329,10 +396,28 @@ runs:
           let secretsTable = '';
           if (findings.length > 0 && findings[0].file) {
             secretsTable = `
-          | File | Line | Type |
-          |------|------|------|
-          ${findings.map(f => `| \`${f.file}\` | ${f.line || 'N/A'} | ${f.detector_type || 'Unknown'} |`).join('\n')}
+          | Location | File | Line | Type |
+          |----------|------|------|------|
+          ${findings.map(f => `| ${f.location_label || '❓ Unknown'} | \`${f.file}\` | ${f.line || 'N/A'} | ${f.detector_type || 'Unknown'} |`).join('\n')}
           `;
+          }
+
+          // Count findings by location
+          const currentFilesCount = findings.filter(f => f.location === 'current_files').length;
+          const historyOnlyCount = findings.filter(f => f.location === 'history_only').length;
+
+          // Build location summary
+          let locationSummary = '';
+          if (historyOnlyCount > 0 || currentFilesCount > 0) {
+            locationSummary = `
+          ### 📍 Location Summary
+          `;
+            if (currentFilesCount > 0) {
+              locationSummary += `- **📄 ${currentFilesCount} secret(s) in current files** - These need to be removed from your code\n`;
+            }
+            if (historyOnlyCount > 0) {
+              locationSummary += `- **📜 ${historyOnlyCount} secret(s) in git history only** - These were committed but have since been removed. The secret was exposed in the PR commit history and should still be rotated.\n`;
+            }
           }
 
           // Unique marker to identify TruffleHog comments
@@ -343,6 +428,7 @@ runs:
           This pull request has been scanned for secrets using TruffleHog, and sensitive information has been detected. Please review the findings below and take appropriate action to secure your repository.
 
           TruffleHog has detected secrets in this pull request. Please review and remove any sensitive information.
+          ${locationSummary}
           ${secretsTable}
 
           <details>
@@ -397,6 +483,8 @@ runs:
             detector=$(echo "$finding" | jq -r '.detector_type // "Unknown"')
             commit=$(echo "$finding" | jq -r '.commit_hash // "unknown"')
             author=$(echo "$finding" | jq -r '.commit_author // "unknown"')
+            location=$(echo "$finding" | jq -r '.location // "unknown"')
+            location_label=$(echo "$finding" | jq -r '.location_label // "Unknown location"')
             # Extract commit date and format it
             commit_date=$(echo "$finding" | jq -r '.commit_date // "unknown"')
             # Format the date nicely if it exists
@@ -404,13 +492,20 @@ runs:
               commit_date=$(date -d "$commit_date" +"%Y-%m-%d" 2>/dev/null || echo "$commit_date")
             fi
 
+            # Build location context for the message
+            if [ "$location" == "history_only" ]; then
+              location_msg="[GIT HISTORY ONLY - secret was committed but since removed]"
+            else
+              location_msg="[IN CURRENT FILES]"
+            fi
+
             # Skip files that are "unknown" as they won't display properly
             if [ "$file" != "unknown" ] && [ "$file" != "N/A (filesystem scan)" ] && [ "${file:0:1}" != "(" ]; then
-              # Create a warning annotation with date
-              echo "::warning file=${file},line=${line}::Secret detected: ${detector} - Author: ${author} - Date: ${commit_date} - Commit: ${commit:0:7}"
+              # Create a warning annotation with date and location
+              echo "::warning file=${file},line=${line}::Secret detected: ${detector} ${location_msg} - Author: ${author} - Date: ${commit_date} - Commit: ${commit:0:7}"
             else
               # For unknown locations, just output a general warning with date
-              echo "::warning::Secret detected: ${detector} in unknown location - Author: ${author} - Date: ${commit_date} - Commit: ${commit:0:7}"
+              echo "::warning::Secret detected: ${detector} ${location_msg} in unknown file - Author: ${author} - Date: ${commit_date} - Commit: ${commit:0:7}"
             fi
           done
         fi
@@ -549,6 +644,10 @@ runs:
 
               <h3>📊 Secret Statistics</h3>
               <div class="stats-container">
+                <div>
+                  <h4>By Location</h4>
+                  ${{ env.LOCATION_STATS }}
+                </div>
                 <div>
                   <h4>By Type</h4>
                   ${{ env.SECRET_STATS }}
