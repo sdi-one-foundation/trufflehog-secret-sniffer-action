@@ -1,23 +1,26 @@
 # CHANGELOG
 
-## [v1.9.1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.9.1) - 2025-08-07 14:49:05
+## [v2.0.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v2.0.0) - 2026-03-10 14:53:23
 
 ## What's Changed
-* fix: change way PR commits are pulled to fix invalid commit ID error by @gallowaystorm in https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/10
+* fix: fix historical scans by @gallowaystorm in https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/11
 
 
-**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v1.9.1
+**Full Changelog**: https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/compare/v1...v2.0.0
 
 ### Bug Fixes
 
 - general:
-  - change way PR commits are pulled to fix invalid commit ID error (#10) ([ca62fe5](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/ca62fe54e690b67dc3fb8e52cf84ec1d3cef1be3)) ([#10](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/10))
+  - fix historical scans (#11) ([f3b9dc8](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/f3b9dc8f9e2405b368e6eb8b8b1b4b6195f7e626)) ([#11](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/pull/11))
+  - fix historical scans ([067646f](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/067646f6a72d2761d704a88ab097b91ce0fc3a6f))
 
 ### Miscellaneous
 
 
 - bot:
-  - update files for Release v1.9.0. ([13f58eb](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/13f58eb1f257c0996817f69470559d588e2b5fb4))
+  - update files for Release v1.9.1. ([1ae536b](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/commit/1ae536b7e7ec05dcc5211dffbc037781a109f9a1))
+
+## [v1.9.1](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.9.1) - 2025-08-07 14:49:05
 
 ## [v1.9.0](https://github.com/sdi-one-foundation/trufflehog-secret-sniffer-action/releases/tag/v1.9.0) - 2025-07-07 18:22:25
 
